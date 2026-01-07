@@ -55,12 +55,20 @@
               </div>
               <div class="attachments-list">
                 <button 
-                  class="attachment-link"
+                  class="attachment-card"
                   @click="downloadFile(ticket.archivoUrl)"
                   type="button"
                 >
-                  <i class="pi pi-file-pdf"></i>
-                  Descargar archivo
+                  <div class="attachment-icon" :class="getFileIconClass(ticket.archivoUrl)">
+                    <i :class="getFileIcon(ticket.archivoUrl)"></i>
+                  </div>
+                  <div class="attachment-info">
+                    <span class="attachment-name">{{ getFileName(ticket.archivoUrl) }}</span>
+                    <span class="attachment-type">{{ getFileTypeLabel(ticket.archivoUrl) }}</span>
+                  </div>
+                  <div class="attachment-action">
+                    <i class="pi pi-download"></i>
+                  </div>
                 </button>
               </div>
             </div>
@@ -79,7 +87,9 @@
                   type="text"
                   class="form-input"
                   placeholder="Asunto de la solicitud"
+                  maxlength="100"
                 />
+                <span class="char-counter">{{ editForm.asunto.length }}/100</span>
               </div>
 
               <div class="form-group">
@@ -91,24 +101,26 @@
                   v-model="editForm.descripcion"
                   class="form-textarea"
                   placeholder="Descripción detallada"
-                  rows="5"
+                  rows="6"
+                  maxlength="1000"
                 ></textarea>
+                <span class="char-counter">{{ editForm.descripcion.length }}/1000</span>
               </div>
 
               <div class="form-group">
                 <label class="form-label">
-                  <i class="pi pi-exclamation-triangle"></i>
+                  <i class="pi pi-flag"></i>
                   Prioridad
                 </label>
                 <select 
                   v-model="editForm.idPrioridad"
                   class="form-select"
                 >
-                  <option value="" disabled>Selecciona una prioridad</option>
+                  <option :value="null" disabled>Selecciona una prioridad</option>
                   <option 
                     v-for="prioridad in prioridades" 
-                    :key="prioridad.id"
-                    :value="prioridad.id"
+                    :key="prioridad.idPrioridad"
+                    :value="prioridad.idPrioridad"
                   >
                     {{ prioridad.nombre }}
                   </option>
@@ -122,13 +134,14 @@
                   type="button"
                   :disabled="saving"
                 >
+                  <i class="pi pi-times"></i>
                   Cancelar
                 </button>
                 <button 
                   class="btn-save"
                   @click="saveEdit"
                   type="button"
-                  :disabled="saving || !isFormValid"
+                  :disabled="saving || !isFormValid || !hasChanges"
                 >
                   <i :class="saving ? 'pi pi-spin pi-spinner' : 'pi pi-check'"></i>
                   {{ saving ? 'Guardando...' : 'Guardar cambios' }}
@@ -143,6 +156,7 @@
           <h2 class="card-title">
             <i class="pi pi-history"></i>
             Historial y Comentarios
+            <span v-if="comentarios.length > 0" class="comment-count">{{ comentarios.length }}</span>
           </h2>
 
           <div v-if="comentarios.length === 0" class="timeline-empty">
@@ -150,7 +164,7 @@
             <p>No hay eventos registrados</p>
           </div>
 
-          <div v-else class="timeline">
+          <div v-else class="timeline-container" ref="timelineContainer">
             <div 
               v-for="item in comentarios" 
               :key="item.id"
@@ -165,19 +179,28 @@
               
               <div class="timeline-content">
                 <div class="timeline-header">
-                  <span class="timeline-author">{{ item.autor }}</span>
+                  <div class="timeline-author-info">
+                    <span class="timeline-author">{{ item.autor }}</span>
+                    <span v-if="item.esEncargado" class="timeline-rol rol-encargado">
+                      <i class="pi pi-star-fill"></i>
+                      Supervisor
+                    </span>
+                    <span v-else-if="item.rol" class="timeline-rol" :class="`rol-${item.tipo}`">{{ item.rol }}</span>
+                  </div>
                   <span class="timeline-date">{{ item.fecha }}</span>
                 </div>
-                <p class="timeline-message">{{ item.mensaje }}</p>
-                <div v-if="item.badges" class="timeline-badges">
-                  <span 
-                    v-for="(badge, index) in item.badges" 
-                    :key="index"
-                    class="timeline-badge"
-                    :class="`badge-${badge.type}`"
-                  >
-                    {{ badge.text }}
-                  </span>
+                
+                <!-- Mensaje normal -->
+                <p v-if="!item.esTransicion" class="timeline-message">{{ item.mensaje }}</p>
+                
+                <!-- Cambio de estado simple -->
+                <div v-else class="cambio-estado">
+                  <span class="cambio-estado-texto">Cambió el estado:</span>
+                  <div class="cambio-estado-valores">
+                    <span class="estado-valor anterior">{{ item.estadoAnterior }}</span>
+                    <span class="estado-arrow">→</span>
+                    <span class="estado-valor nuevo">{{ item.estadoNuevo }}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -280,11 +303,11 @@
         </div>
 
         <!-- Acciones de Gestor -->
-        <div class="actions-card" v-if="isGestor">
+        <div class="actions-card" v-if="(isGestor || isAdmin) && ticket.estado !== 'rechazada' && ticket.estado !== 'cancelada' && !noPuedeCambiarEstado">
           <h2 class="card-title">Acciones</h2>
           
           <button 
-            v-if="!ticket.gestor"
+            v-if="!ticket.gestor && isGestor"
             class="btn-action-primary"
             @click="tomarSolicitud"
             :disabled="tomandoSolicitud"
@@ -298,17 +321,29 @@
             <select 
               v-model="nuevoEstado"
               class="action-select"
-              :disabled="cambiandoEstado || !ticket.gestor"
+              :disabled="cambiandoEstado || (!ticket.gestor && !isAdmin) || noPuedeCambiarEstado"
             >
               <option 
-                v-for="estado in estados" 
+                v-for="estado in estadosDisponibles" 
                 :key="estado.idEstado"
                 :value="estado.idEstado"
               >
                 {{ estado.nombre }}
               </option>
             </select>
-            <p v-if="!ticket.gestor" class="action-warning">
+            <p v-if="ticketCerrado" class="action-warning">
+              <i class="pi pi-lock"></i>
+              Esta solicitud está cerrada y no se puede modificar su estado
+            </p>
+            <p v-else-if="ticketEnProgreso && isAdmin" class="action-warning">
+              <i class="pi pi-clock"></i>
+              Esta solicitud está en progreso. Solo el gestor asignado puede modificar su estado
+            </p>
+            <p v-else-if="ticketResuelto && !isAdmin" class="action-warning">
+              <i class="pi pi-check-circle"></i>
+              Esta solicitud ya fue resuelta. Solo un administrador puede modificar su estado
+            </p>
+            <p v-else-if="!ticket.gestor && !isAdmin" class="action-warning">
               <i class="pi pi-info-circle"></i>
               Debes tomar la solicitud antes de cambiar el estado
             </p>
@@ -325,7 +360,7 @@
             <button 
               class="btn-action-secondary"
               @click="cambiarEstado"
-              :disabled="!nuevoEstado || cambiandoEstado || parseInt(nuevoEstado) === parseInt(ticket.idEstado) || !ticket.gestor || (parseInt(nuevoEstado) === 5 && !razonCancelacion.trim())"
+              :disabled="!nuevoEstado || cambiandoEstado || parseInt(nuevoEstado) === parseInt(ticket.idEstado) || (!ticket.gestor && !isAdmin) || (parseInt(nuevoEstado) === 5 && !razonCancelacion.trim()) || noPuedeCambiarEstado"
             >
               <i :class="cambiandoEstado ? 'pi pi-spin pi-spinner' : 'pi pi-refresh'"></i>
               {{ cambiandoEstado ? 'Cambiando...' : 'Aplicar Cambio' }}
@@ -334,7 +369,7 @@
         </div>
 
         <!-- Asignación de Gestor (Admin y Encargados) -->
-        <div class="actions-card" v-if="puedeAsignar">
+        <div class="actions-card" v-if="puedeAsignar && ticket.estado !== 'rechazada' && ticket.estado !== 'cancelada' && !ticketCerrado">
           <h2 class="card-title">
             <i class="pi pi-users"></i>
             Asignación de Gestor
@@ -409,6 +444,7 @@ const newComment = ref('')
 const loading = ref(true)
 const loadingComentarios = ref(false)
 const sendingComment = ref(false)
+const timelineContainer = ref(null)
 
 // Edit functionality
 const isEditing = ref(false)
@@ -457,6 +493,88 @@ const estaAsignadoAMi = computed(() => {
          parseInt(gestorSeleccionado.value) === ticket.value.idGestorAsignado
 })
 
+// Filtrar estados disponibles según el estado actual del ticket
+const estadosDisponibles = computed(() => {
+  if (!ticket.value || !estados.value.length) return estados.value
+  
+  let estadosFiltrados = estados.value
+  
+  // Si el ticket ya no está en estado "nueva" (idEstado !== 1), no permitir volver a "nueva"
+  if (ticket.value.idEstado !== 1) {
+    estadosFiltrados = estadosFiltrados.filter(estado => estado.idEstado !== 1)
+  }
+  
+  // Si el ticket está en "resuelta" (idEstado === 4), solo permitir cambiar a "Cerrada"
+  // Solo admins pueden ver esta opción (gestores ya están bloqueados por gestorNoPuedeCambiarEstado)
+  if (ticket.value.idEstado === 4 || ticket.value.estado === 'resuelto' || ticket.value.estado?.toLowerCase() === 'resuelta') {
+    estadosFiltrados = estadosFiltrados.filter(estado => 
+      estado.idEstado === 6 || estado.nombre?.toLowerCase() === 'cerrada'
+    )
+    return estadosFiltrados
+  }
+  
+  // Solo los administradores pueden cerrar solicitudes
+  // Los gestores no tienen acceso a este estado
+  // Filtrar por idEstado === 6 O por nombre "Cerrada" (case-insensitive)
+  if (!isAdmin.value) {
+    estadosFiltrados = estadosFiltrados.filter(estado => 
+      estado.idEstado !== 6 && estado.nombre?.toLowerCase() !== 'cerrada'
+    )
+  }
+  
+  return estadosFiltrados
+})
+
+// Verificar si el ticket está cerrado (no se puede cambiar estado)
+const ticketCerrado = computed(() => {
+  if (!ticket.value) return false
+  // Verificar por idEstado (6 = Cerrada) o por el nombre del estado
+  const estaCerrado = ticket.value.idEstado === 6 || 
+                      ticket.value.estado === 'cerrada' || 
+                      ticket.value.estado?.toLowerCase() === 'cerrada'
+  return estaCerrado
+})
+
+// Verificar si el ticket está resuelto (solo admin puede cambiar estado)
+const ticketResuelto = computed(() => {
+  if (!ticket.value) return false
+  // Verificar por idEstado (4 = Resuelta) o por el nombre del estado
+  const estaResuelto = ticket.value.idEstado === 4 || 
+                       ticket.value.estado === 'resuelto' || 
+                       ticket.value.estado?.toLowerCase() === 'resuelta'
+  return estaResuelto
+})
+
+// Verificar si el ticket está en progreso (nadie puede cambiar estado excepto gestores)
+const ticketEnProgreso = computed(() => {
+  if (!ticket.value) return false
+  // Verificar por idEstado (2 = En Progreso) o por el nombre del estado
+  const estaEnProgreso = ticket.value.idEstado === 2 || 
+                         ticket.value.estado === 'en-proceso' || 
+                         ticket.value.estado?.toLowerCase() === 'en progreso'
+  return estaEnProgreso
+})
+
+// Solo gestores pueden cambiar estado cuando está en progreso
+// Admin solo puede cambiar estado cuando está en Nueva o Resuelta
+const noPuedeCambiarEstado = computed(() => {
+  // Si está cerrado, nadie puede cambiar
+  if (ticketCerrado.value) return true
+  
+  // Si es admin y está en progreso, no puede cambiar
+  if (isAdmin.value && ticketEnProgreso.value) return true
+  
+  // Si es gestor y está resuelto, no puede cambiar
+  if (!isAdmin.value && ticketResuelto.value) return true
+  
+  return false
+})
+
+// El gestor no puede cambiar el estado si está cerrado o resuelto
+const gestorNoPuedeCambiarEstado = computed(() => {
+  return !isAdmin.value && (ticketCerrado.value || ticketResuelto.value)
+})
+
 const esUsuarioActual = (idUsuario) => {
   const user = authService.getUser()
   return user && user.id === idUsuario
@@ -484,16 +602,39 @@ const canEdit = computed(() => {
 const isFormValid = computed(() => {
   return editForm.value.asunto.trim() !== '' &&
          editForm.value.descripcion.trim() !== '' &&
-         editForm.value.idPrioridad !== null
+         editForm.value.idPrioridad !== null &&
+         editForm.value.idPrioridad !== undefined
+})
+
+// Verificar si hay cambios reales en el formulario
+const hasChanges = computed(() => {
+  if (!ticket.value) return false
+  
+  const asuntoChanged = editForm.value.asunto.trim() !== (ticket.value.asunto || '')
+  const descripcionChanged = editForm.value.descripcion.trim() !== (ticket.value.descripcion || '')
+  const prioridadChanged = Number(editForm.value.idPrioridad) !== Number(ticket.value.idPrioridad)
+  
+  return asuntoChanged || descripcionChanged || prioridadChanged
 })
 
 const getAvatarIcon = (tipo) => {
   const icons = {
-    'system': 'pi pi-info-circle',
+    'system': 'pi pi-cog',
     'admin': 'pi pi-shield',
+    'encargado': 'pi pi-star-fill',
+    'gestor': 'pi pi-wrench',
     'user': 'pi pi-user'
   }
   return icons[tipo] || 'pi pi-comment'
+}
+
+// Scroll al final del timeline
+const scrollToBottom = () => {
+  if (timelineContainer.value) {
+    setTimeout(() => {
+      timelineContainer.value.scrollTop = timelineContainer.value.scrollHeight
+    }, 100)
+  }
 }
 
 const goBack = () => {
@@ -514,10 +655,17 @@ const startEdit = async () => {
 
   // Llenar el formulario con los datos actuales
   editForm.value = {
-    asunto: ticket.value.asunto,
-    descripcion: ticket.value.descripcion,
-    idPrioridad: ticket.value.idPrioridad
+    asunto: ticket.value.asunto || '',
+    descripcion: ticket.value.descripcion || '',
+    idPrioridad: ticket.value.idPrioridad ? parseInt(ticket.value.idPrioridad, 10) : null
   }
+  
+  console.log('📝 Formulario inicializado:', {
+    asunto: editForm.value.asunto,
+    descripcion: editForm.value.descripcion,
+    idPrioridad: editForm.value.idPrioridad,
+    ticketIdPrioridad: ticket.value.idPrioridad
+  })
 
   isEditing.value = true
 }
@@ -580,6 +728,9 @@ const addComment = async () => {
     
     // Recargar comentarios y trazabilidad
     await loadComentarios(ticket.value.id)
+    
+    // Scroll al final para ver el nuevo comentario
+    scrollToBottom()
     
     newComment.value = ''
     alert('Comentario agregado exitosamente')
@@ -773,15 +924,29 @@ const verificarPermisos = async () => {
     return
   }
 
-  // Verificar si es encargado del área de la solicitud
+  // Verificar si es encargado ACTIVO del área de la solicitud
   if (user.rol === 'Gestor' && ticket.value.idArea) {
     try {
       const result = await encargadoService.verificarEncargado(user.id, ticket.value.idArea)
-      esEncargado.value = result.esEncargado || result
+      
+      // El servicio ahora devuelve { esEncargado: boolean, activo: boolean }
+      // Solo puede asignar si es encargado Y está activo
+      esEncargado.value = result.esEncargado === true && result.activo === true
+      
+      console.log('Verificacion de encargado:', {
+        usuario: user.nombre,
+        idUsuario: user.id,
+        idArea: ticket.value.idArea,
+        resultadoAPI: result,
+        esEncargadoFinal: esEncargado.value
+      })
     } catch (error) {
       console.error('Error verificando permisos:', error)
       esEncargado.value = false
     }
+  } else {
+    // Si no es gestor, no puede ser encargado
+    esEncargado.value = false
   }
 }
 
@@ -794,12 +959,15 @@ onMounted(async () => {
     const user = authService.getUser()
     if (user && user.rol === 'Gestor') {
       isGestor.value = true
-      // Cargar catálogo de estados para gestores
-      estados.value = await catalogoService.getEstados()
     }
     
     if (user && user.rol === 'Admin') {
       isAdmin.value = true
+    }
+    
+    // Cargar catálogo de estados para gestores y admins
+    if (isGestor.value || isAdmin.value) {
+      estados.value = await catalogoService.getEstados()
     }
     
     // Cargar solicitud
@@ -854,23 +1022,34 @@ const loadComentarios = async (idSolicitud) => {
           return
         }
         
-        const item = {
-          id: `traz-${t.idTrazabilidad}`,
-          tipo: 'system',
-          autor: t.nombreUsuario || 'Sistema',
-          mensaje: mensaje,
-          fecha: formatFecha(t.fechaEvento),
-          fechaOriginal: new Date(t.fechaEvento)
+        // Determinar el tipo basado en el rol y si es encargado
+        let tipoTrazabilidad = 'system'
+        if (t.nombreUsuario) {
+          tipoTrazabilidad = t.esEncargado ? 'encargado' : mapRolToTipo(t.rolUsuario)
         }
         
-        // Detectar si es un cambio de estado y agregar badges
-        if (t.descripcion && t.descripcion.toLowerCase().includes('estado cambiado')) {
-          const estadoMatch = t.descripcion.match(/de (.+?) a (.+?)$/)
+        const item = {
+          id: `traz-${t.idTrazabilidad}`,
+          tipo: tipoTrazabilidad,
+          autor: t.nombreUsuario || 'Sistema',
+          rol: t.rolUsuario || null,
+          esEncargado: t.esEncargado || false,
+          mensaje: mensaje,
+          fecha: formatFecha(t.fechaEvento),
+          fechaOriginal: new Date(t.fechaEvento),
+          esTransicion: false,
+          estadoAnterior: null,
+          estadoNuevo: null
+        }
+        
+        // Detectar si es un cambio de estado y extraer los estados
+        if (t.descripcion && (t.descripcion.toLowerCase().includes('estado cambiado') || t.descripcion.toLowerCase().includes('cambió el estado'))) {
+          // Buscar patrón: de "Estado1" a "Estado2" o de 'Estado1' a 'Estado2'
+          const estadoMatch = t.descripcion.match(/de ['"]?(.+?)['"]? a ['"]?(.+?)['"]?$/i)
           if (estadoMatch) {
-            item.badges = [
-              { text: estadoMatch[1], type: 'estado-anterior' },
-              { text: estadoMatch[2], type: 'estado-nuevo' }
-            ]
+            item.esTransicion = true
+            item.estadoAnterior = estadoMatch[1].replace(/['"]/g, '').trim()
+            item.estadoNuevo = estadoMatch[2].replace(/['"]/g, '').trim()
           }
         }
         
@@ -881,10 +1060,16 @@ const loadComentarios = async (idSolicitud) => {
     // Agregar comentarios
     if (response.comentarios && response.comentarios.length > 0) {
       response.comentarios.forEach(c => {
+        // Mapear rol del backend al tipo de avatar
+        // Si es gestor encargado, usar tipo especial
+        const tipoUsuario = c.esEncargado ? 'encargado' : mapRolToTipo(c.rolUsuario)
+        
         allItems.push({
           id: c.idComentario,
-          tipo: mapTipoComentario(c.rol || 'Solicitante'),
+          tipo: tipoUsuario,
           autor: c.nombreUsuario,
+          rol: c.rolUsuario || 'Usuario',
+          esEncargado: c.esEncargado || false,
           mensaje: c.texto,
           fecha: formatFecha(c.fechaComentario),
           fechaOriginal: new Date(c.fechaComentario)
@@ -903,10 +1088,30 @@ const loadComentarios = async (idSolicitud) => {
   }
 }
 
+// Determinar el tipo de usuario basado en el ID
+// Mapear rol del backend al tipo de avatar/estilo
+const mapRolToTipo = (rol) => {
+  if (!rol) return 'user'
+  
+  const rolLower = rol.toLowerCase()
+  
+  if (rolLower === 'admin' || rolLower === 'administrador') {
+    return 'admin'
+  }
+  if (rolLower === 'gestor') {
+    return 'gestor'
+  }
+  if (rolLower === 'solicitante' || rolLower === 'usuario') {
+    return 'user'
+  }
+  
+  return 'user'
+}
+
 const mapTipoComentario = (rol) => {
   const tipoMap = {
     'Admin': 'admin',
-    'Gestor': 'admin',
+    'Gestor': 'gestor',
     'Solicitante': 'user'
   }
   return tipoMap[rol] || 'user'
@@ -932,6 +1137,83 @@ const getFileUrl = (archivoUrl) => {
   
   // Construir URL usando el endpoint de descarga
   return `${apiService.baseURL}/Archivos/download/${fileName}`
+}
+
+// Funciones para manejar archivos adjuntos
+const getFileExtension = (url) => {
+  if (!url) return ''
+  const fileName = url.split('/').pop()
+  const ext = fileName.split('.').pop().toLowerCase()
+  return ext
+}
+
+const getFileIcon = (url) => {
+  const ext = getFileExtension(url)
+  const iconMap = {
+    'pdf': 'pi pi-file-pdf',
+    'doc': 'pi pi-file-word',
+    'docx': 'pi pi-file-word',
+    'xls': 'pi pi-file-excel',
+    'xlsx': 'pi pi-file-excel',
+    'ppt': 'pi pi-file',
+    'pptx': 'pi pi-file',
+    'txt': 'pi pi-file',
+    'png': 'pi pi-image',
+    'jpg': 'pi pi-image',
+    'jpeg': 'pi pi-image',
+    'gif': 'pi pi-image',
+    'webp': 'pi pi-image',
+    'svg': 'pi pi-image',
+    'zip': 'pi pi-file-zip',
+    'rar': 'pi pi-file-zip',
+    '7z': 'pi pi-file-zip'
+  }
+  return iconMap[ext] || 'pi pi-file'
+}
+
+const getFileIconClass = (url) => {
+  const ext = getFileExtension(url)
+  if (ext === 'pdf') return 'icon-pdf'
+  if (['doc', 'docx'].includes(ext)) return 'icon-word'
+  if (['xls', 'xlsx'].includes(ext)) return 'icon-excel'
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) return 'icon-image'
+  if (['zip', 'rar', '7z'].includes(ext)) return 'icon-zip'
+  return 'icon-default'
+}
+
+const getFileName = (url) => {
+  if (!url) return 'Archivo'
+  const fileName = url.split('/').pop()
+  if (fileName.length > 30) {
+    const ext = fileName.split('.').pop()
+    const name = fileName.substring(0, 25)
+    return `${name}...${ext}`
+  }
+  return fileName
+}
+
+const getFileTypeLabel = (url) => {
+  const ext = getFileExtension(url)
+  const labelMap = {
+    'pdf': 'Documento PDF',
+    'doc': 'Documento Word',
+    'docx': 'Documento Word',
+    'xls': 'Hoja de cálculo',
+    'xlsx': 'Hoja de cálculo',
+    'ppt': 'Presentación',
+    'pptx': 'Presentación',
+    'txt': 'Archivo de texto',
+    'png': 'Imagen PNG',
+    'jpg': 'Imagen JPEG',
+    'jpeg': 'Imagen JPEG',
+    'gif': 'Imagen GIF',
+    'webp': 'Imagen WebP',
+    'svg': 'Imagen SVG',
+    'zip': 'Archivo comprimido',
+    'rar': 'Archivo comprimido',
+    '7z': 'Archivo comprimido'
+  }
+  return labelMap[ext] || 'Archivo adjunto'
 }
 </script>
 
@@ -1070,32 +1352,35 @@ const getFileUrl = (archivoUrl) => {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  position: relative;
 }
 
 .form-label {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  color: #6b7280;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
 }
 
 .form-label i {
-  font-size: 13px;
+  font-size: 14px;
+  color: #6b7280;
 }
 
 .form-input,
 .form-textarea,
 .form-select {
-  padding: 10px 12px;
+  padding: 12px 14px;
   border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 13px;
+  border-radius: 8px;
+  font-size: 14px;
   font-family: inherit;
   outline: none;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   color: #374151;
+  background: #fafafa;
 }
 
 .form-input:focus,
@@ -1103,29 +1388,46 @@ const getFileUrl = (archivoUrl) => {
 .form-select:focus {
   border-color: #4F39F6;
   box-shadow: 0 0 0 3px rgba(79, 57, 246, 0.1);
+  background: white;
 }
 
 .form-textarea {
   resize: vertical;
-  min-height: 100px;
+  min-height: 120px;
+}
+
+.char-counter {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  font-size: 11px;
+  color: #9ca3af;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
 .form-actions {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   justify-content: flex-end;
-  padding-top: 8px;
+  padding-top: 16px;
+  margin-top: 8px;
+  border-top: 1px solid #f0f0f0;
 }
 
 .btn-cancel,
 .btn-save {
   padding: 10px 20px;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   border: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .btn-cancel {
@@ -1135,18 +1437,18 @@ const getFileUrl = (archivoUrl) => {
 
 .btn-cancel:hover:not(:disabled) {
   background: #e5e7eb;
+  color: #374151;
 }
 
 .btn-save {
   background: #4F39F6;
   color: white;
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .btn-save:hover:not(:disabled) {
   background: #3d2bc4;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(79, 57, 246, 0.3);
 }
 
 .btn-save:disabled,
@@ -1202,21 +1504,108 @@ const getFileUrl = (archivoUrl) => {
   gap: 8px;
 }
 
-.attachment-link {
-  color: #4F39F6;
-  text-decoration: none;
-  font-size: 14px;
-  display: inline-flex;
+.attachment-card {
+  display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  text-align: left;
 }
 
-.attachment-link:hover {
-  text-decoration: underline;
+.attachment-card:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-.attachment-link::before {
-  content: '📎';
+.attachment-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.attachment-icon i {
+  font-size: 20px;
+  color: white;
+}
+
+.attachment-icon.icon-pdf {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.attachment-icon.icon-word {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+}
+
+.attachment-icon.icon-excel {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+}
+
+.attachment-icon.icon-image {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+}
+
+.attachment-icon.icon-zip {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.attachment-icon.icon-default {
+  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+}
+
+.attachment-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.attachment-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.attachment-type {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.attachment-action {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #4F39F6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.attachment-action i {
+  font-size: 14px;
+  color: white;
+}
+
+.attachment-card:hover .attachment-action {
+  background: #3d2bc4;
+  transform: scale(1.05);
 }
 
 .timeline-empty {
@@ -1243,7 +1632,47 @@ const getFileUrl = (archivoUrl) => {
   display: flex;
   flex-direction: column;
   gap: 0;
-  margin-bottom: 24px;
+}
+
+.timeline-container {
+  max-height: 500px;
+  overflow-y: auto;
+  padding-right: 8px;
+  scroll-behavior: smooth;
+}
+
+/* Scrollbar personalizado */
+.timeline-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.timeline-container::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.timeline-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.timeline-container::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.comment-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #4F39F6;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  margin-left: 8px;
 }
 
 .timeline-item {
@@ -1282,15 +1711,23 @@ const getFileUrl = (archivoUrl) => {
 }
 
 .timeline-avatar.avatar-system {
-  background: #3b82f6;
+  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
 }
 
 .timeline-avatar.avatar-admin {
-  background: #8b5cf6;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.timeline-avatar.avatar-gestor {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+}
+
+.timeline-avatar.avatar-encargado {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
 }
 
 .timeline-avatar.avatar-user {
-  background: #10b981;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
 }
 
 .timeline-line {
@@ -1309,8 +1746,16 @@ const getFileUrl = (archivoUrl) => {
 .timeline-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 4px;
+  gap: 8px;
+}
+
+.timeline-author-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .timeline-author {
@@ -1319,9 +1764,53 @@ const getFileUrl = (archivoUrl) => {
   color: #1a1a1a;
 }
 
+.timeline-rol {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.timeline-rol.rol-admin {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.timeline-rol.rol-gestor {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.timeline-rol.rol-user {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.timeline-rol.rol-system {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.timeline-rol.rol-encargado {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.timeline-rol.rol-encargado i {
+  font-size: 10px;
+  color: #f59e0b;
+}
+
 .timeline-date {
   font-size: 12px;
   color: #9ca3af;
+  flex-shrink: 0;
 }
 
 .timeline-message {
@@ -1352,6 +1841,48 @@ const getFileUrl = (archivoUrl) => {
 .timeline-badge.badge-estado-nuevo {
   background: #fef3c7;
   color: #92400e;
+}
+
+/* Cambio de estado simple y limpio */
+.cambio-estado {
+  margin-top: 4px;
+}
+
+.cambio-estado-texto {
+  font-size: 13px;
+  color: #6b7280;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.cambio-estado-valores {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.estado-valor {
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.estado-valor.anterior {
+  background: #f3f4f6;
+  color: #6b7280;
+  text-decoration: line-through;
+}
+
+.estado-valor.nuevo {
+  background: #4F39F6;
+  color: white;
+}
+
+.estado-arrow {
+  color: #9ca3af;
+  font-size: 16px;
+  font-weight: bold;
 }
 
 .add-comment {

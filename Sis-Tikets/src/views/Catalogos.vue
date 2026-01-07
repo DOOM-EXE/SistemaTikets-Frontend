@@ -48,15 +48,15 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="area in areas" :key="area.id">
-                  <td>{{ area.id }}</td>
+                <tr v-for="area in areas" :key="area.idArea">
+                  <td>{{ area.idArea }}</td>
                   <td>{{ area.nombre }}</td>
                   <td>
                     <div class="action-buttons">
                       <button class="btn-edit" @click="editItem('area', area)">
                         <i class="pi pi-pencil"></i>
                       </button>
-                      <button class="btn-delete" @click="deleteItem('area', area.id, area.nombre)">
+                      <button class="btn-delete" @click="deleteItem('area', area.idArea, area.nombre)">
                         <i class="pi pi-trash"></i>
                       </button>
                     </div>
@@ -71,13 +71,24 @@
         <div v-if="activeTab === 'tipos'" class="catalog-section">
           <div class="section-header">
             <h2>Tipos de Solicitud</h2>
-            <button class="btn-create" @click="openModal('tipo')">
-              <i class="pi pi-plus"></i>
-              Nuevo Tipo
-            </button>
+            <div class="header-actions">
+              <div class="filter-area">
+                <label>Filtrar por área:</label>
+                <select v-model="filtroAreaTipos" class="filter-select">
+                  <option value="">Todas las áreas</option>
+                  <option v-for="area in areas" :key="area.idArea" :value="area.idArea">
+                    {{ area.nombre }}
+                  </option>
+                </select>
+              </div>
+              <button class="btn-create" @click="openModal('tipo')">
+                <i class="pi pi-plus"></i>
+                Nuevo Tipo
+              </button>
+            </div>
           </div>
 
-          <div class="table-wrapper">
+          <div class="table-wrapper" v-if="tiposFiltrados.length > 0">
             <table class="catalog-table">
               <thead>
                 <tr>
@@ -88,8 +99,8 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="tipo in tipos" :key="tipo.id">
-                  <td>{{ tipo.id }}</td>
+                <tr v-for="tipo in tiposFiltrados" :key="tipo.idTipoSolicitud">
+                  <td>{{ tipo.idTipoSolicitud }}</td>
                   <td>{{ tipo.nombre }}</td>
                   <td>{{ tipo.nombreArea || '-' }}</td>
                   <td>
@@ -97,7 +108,7 @@
                       <button class="btn-edit" @click="editItem('tipo', tipo)">
                         <i class="pi pi-pencil"></i>
                       </button>
-                      <button class="btn-delete" @click="deleteItem('tipo', tipo.id, tipo.nombre)">
+                      <button class="btn-delete" @click="deleteItem('tipo', tipo.idTipoSolicitud, tipo.nombre)">
                         <i class="pi pi-trash"></i>
                       </button>
                     </div>
@@ -105,6 +116,26 @@
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          <!-- Mensaje cuando no hay tipos para el área seleccionada -->
+          <div v-else-if="filtroAreaTipos" class="empty-state">
+            <i class="pi pi-inbox empty-icon"></i>
+            <p class="empty-text">Esta área no tiene tipos de solicitud asignados</p>
+            <button class="btn-add-tipo" @click="openModalConArea">
+              <i class="pi pi-plus"></i>
+              Agregar tipo de solicitud
+            </button>
+          </div>
+
+          <!-- Mensaje cuando no hay tipos en general -->
+          <div v-else class="empty-state">
+            <i class="pi pi-inbox empty-icon"></i>
+            <p class="empty-text">No hay tipos de solicitud registrados</p>
+            <button class="btn-create" @click="openModal('tipo')">
+              <i class="pi pi-plus"></i>
+              Crear primer tipo
+            </button>
           </div>
         </div>
 
@@ -128,15 +159,15 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="prioridad in prioridades" :key="prioridad.id">
-                  <td>{{ prioridad.id }}</td>
+                <tr v-for="prioridad in prioridades" :key="prioridad.idPrioridad">
+                  <td>{{ prioridad.idPrioridad }}</td>
                   <td>{{ prioridad.nombre }}</td>
                   <td>
                     <div class="action-buttons">
                       <button class="btn-edit" @click="editItem('prioridad', prioridad)">
                         <i class="pi pi-pencil"></i>
                       </button>
-                      <button class="btn-delete" @click="deleteItem('prioridad', prioridad.id, prioridad.nombre)">
+                      <button class="btn-delete" @click="deleteItem('prioridad', prioridad.idPrioridad, prioridad.nombre)">
                         <i class="pi pi-trash"></i>
                       </button>
                     </div>
@@ -235,8 +266,8 @@
                 <option value="">Seleccione un área</option>
                 <option 
                   v-for="area in areas" 
-                  :key="area.id"
-                  :value="area.id"
+                  :key="area.idArea"
+                  :value="area.idArea"
                 >
                   {{ area.nombre }}
                 </option>
@@ -304,6 +335,14 @@ const areas = ref([])
 const tipos = ref([])
 const prioridades = ref([])
 const estados = ref([])
+const filtroAreaTipos = ref('')
+
+const tiposFiltrados = computed(() => {
+  if (!filtroAreaTipos.value) {
+    return tipos.value
+  }
+  return tipos.value.filter(tipo => tipo.idArea === filtroAreaTipos.value)
+})
 
 const formData = ref({
   nombre: '',
@@ -359,9 +398,30 @@ const openModal = (type) => {
   showModal.value = true
 }
 
+// Abrir modal con el área ya preseleccionada
+const openModalConArea = () => {
+  modalType.value = 'tipo'
+  editingId.value = null
+  formData.value = {
+    nombre: '',
+    idArea: filtroAreaTipos.value
+  }
+  showModal.value = true
+}
+
 const editItem = (type, item) => {
   modalType.value = type
-  editingId.value = type === 'estado' ? item.idEstado : item.id
+  
+  // Obtener el ID correcto según el tipo
+  if (type === 'area') {
+    editingId.value = item.idArea
+  } else if (type === 'tipo') {
+    editingId.value = item.idTipoSolicitud
+  } else if (type === 'prioridad') {
+    editingId.value = item.idPrioridad
+  } else if (type === 'estado') {
+    editingId.value = item.idEstado
+  }
   
   formData.value = {
     nombre: item.nombre,
@@ -463,7 +523,15 @@ const deleteItem = async (type, id, nombre) => {
     await loadData()
   } catch (error) {
     console.error('Error eliminando registro:', error)
-    alert(error.response?.data?.message || 'Error al eliminar el registro. Puede estar en uso.')
+    
+    // Mensajes específicos según el tipo de catálogo
+    const mensajes = {
+      area: 'No se puede eliminar el área porque tiene tipos de solicitud o solicitudes asociadas',
+      tipo: 'No se puede eliminar el tipo porque tiene solicitudes asociadas',
+      prioridad: 'No se puede eliminar la prioridad porque tiene solicitudes asociadas',
+      estado: 'No se puede eliminar el estado porque tiene solicitudes asociadas'
+    }
+    alert(mensajes[type] || 'No se puede eliminar el registro porque está en uso')
   }
 }
 
@@ -593,6 +661,8 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
 .section-header h2 {
@@ -600,6 +670,40 @@ onMounted(() => {
   font-weight: 600;
   color: #1a1a1a;
   margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.filter-area {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-area label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  white-space: nowrap;
+}
+
+.filter-select {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+  min-width: 180px;
+  transition: all 0.3s ease;
+}
+
+.filter-select:focus {
+  border-color: #4F39F6;
+  box-shadow: 0 0 0 3px rgba(79, 57, 246, 0.1);
 }
 
 .btn-create {
@@ -619,6 +723,48 @@ onMounted(() => {
 
 .btn-create:hover {
   background: #3d2bc4;
+  transform: translateY(-1px);
+}
+
+/* Empty State */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 48px;
+  color: #d1d5db;
+  margin-bottom: 16px;
+}
+
+.empty-text {
+  font-size: 16px;
+  color: #6b7280;
+  margin: 0 0 20px 0;
+}
+
+.btn-add-tipo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-add-tipo:hover {
+  background: #059669;
   transform: translateY(-1px);
 }
 

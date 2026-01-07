@@ -52,44 +52,60 @@
               {{ prioridad.nombre }}
             </option>
           </select>
-          <p class="form-hint">Seleccione Alta solo si es urgente y afecta su trabajo diario</p>
+          <p class="form-hint form-hint-warning">
+            <i class="pi pi-exclamation-triangle"></i>
+            Seleccione Alta solo si es urgente y afecta su trabajo diario
+          </p>
         </div>
 
         <!-- Asunto -->
         <div class="form-group">
-          <label class="form-label">Asunto</label>
-            <input 
-              type="text" 
-              v-model="formData.asunto" 
-              class="form-input"
-              placeholder="Resumen breve de su solicitud"
-              required
-              maxlength="100"
-              @input="onAsuntoInput"
-            />
-            <p class="form-hint" v-if="formData.asunto.length > 0">
-              {{ formData.asunto.length }}/100 caracteres
-            </p>
-            <p v-if="asuntoError" class="form-error">{{ asuntoError }}</p>
+          <div class="label-row">
+            <label class="form-label">Asunto</label>
+            <span class="char-counter" :class="{ 'counter-warning': formData.asunto.length > 80, 'counter-danger': formData.asunto.length >= 100 }">
+              {{ formData.asunto.length }}/100
+            </span>
+          </div>
+          <input 
+            type="text" 
+            v-model="formData.asunto" 
+            class="form-input"
+            placeholder="Resumen breve de su solicitud"
+            required
+            maxlength="100"
+            @input="onAsuntoInput"
+          />
+          <p v-if="asuntoError" class="form-error">
+            <i class="pi pi-exclamation-circle"></i>
+            {{ asuntoError }}
+          </p>
         </div>
 
         <!-- Descripción -->
         <div class="form-group">
-          <label class="form-label">Descripción</label>
-            <textarea 
-              v-model="formData.descripcion" 
-              class="form-textarea"
-              placeholder="Describe detalladamente tu solicitud. Incluye toda información que considere relevante"
-              rows="6"
-              required
-              maxlength="1000"
-              @input="onDescripcionInput"
-            ></textarea>
-            <p class="form-hint" v-if="formData.descripcion.length > 0">
-              {{ formData.descripcion.length }}/1000 caracteres
-            </p>
-            <p v-if="descripcionError" class="form-error">{{ descripcionError }}</p>
-            <p class="form-hint">Proporciona la mayor cantidad de detalles posibles para agilizar la atención</p>
+          <div class="label-row">
+            <label class="form-label">Descripción</label>
+            <span class="char-counter" :class="{ 'counter-warning': formData.descripcion.length > 800, 'counter-danger': formData.descripcion.length >= 1000 }">
+              {{ formData.descripcion.length }}/1000
+            </span>
+          </div>
+          <textarea 
+            v-model="formData.descripcion" 
+            class="form-textarea"
+            placeholder="Describe detalladamente tu solicitud. Incluye toda información que considere relevante"
+            rows="6"
+            required
+            maxlength="1000"
+            @input="onDescripcionInput"
+          ></textarea>
+          <p v-if="descripcionError" class="form-error">
+            <i class="pi pi-exclamation-circle"></i>
+            {{ descripcionError }}
+          </p>
+          <p class="form-hint">
+            <i class="pi pi-info-circle"></i>
+            Proporciona la mayor cantidad de detalles posibles para agilizar la atención
+          </p>
         </div>
 
         <!-- Adjuntar Archivo -->
@@ -108,19 +124,22 @@
               @change="handleFileSelect"
               class="file-input"
               accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-              multiple
             />
             <i class="pi pi-cloud-upload upload-icon"></i>
             <p class="upload-text">Arrastra un archivo aquí o haz clic para seleccionar</p>
-            <p class="upload-hint">Formatos aceptados: PDF, DOCX, JPG, PNG (Máx 10MB)</p>
+            <p class="upload-hint">Formatos aceptados: PDF, DOCX, JPG, PNG (Máx 10MB) - Solo 1 archivo</p>
           </div>
           
           <!-- Lista de archivos seleccionados -->
           <div v-if="selectedFiles.length > 0" class="file-list">
             <div v-for="(file, index) in selectedFiles" :key="index" class="file-item">
-              <i class="pi pi-file"></i>
-              <span class="file-name">{{ file.name }}</span>
-              <span class="file-size">{{ formatFileSize(file.size) }}</span>
+              <div class="file-icon" :class="getFileIconClass(file.name)">
+                <i :class="getFileIcon(file.name)"></i>
+              </div>
+              <div class="file-info">
+                <span class="file-name">{{ file.name }}</span>
+                <span class="file-meta">{{ getFileTypeLabel(file.name) }} • {{ formatFileSize(file.size) }}</span>
+              </div>
               <button type="button" @click="removeFile(index)" class="btn-remove-file">
                 <i class="pi pi-times"></i>
               </button>
@@ -257,13 +276,15 @@ const handleDrop = (event) => {
 }
 
 const addFiles = (files) => {
-  files.forEach(file => {
-    if (file.size <= 10 * 1024 * 1024) { // 10MB max
-      selectedFiles.value.push(file)
-    } else {
-      alert(`El archivo ${file.name} excede el tamaño máximo de 10MB`)
-    }
-  })
+  // Solo tomar el primer archivo (reemplaza el anterior)
+  const file = files[0]
+  if (!file) return
+  
+  if (file.size <= 10 * 1024 * 1024) { // 10MB max
+    selectedFiles.value = [file] // Reemplazar, no agregar
+  } else {
+    alert(`El archivo ${file.name} excede el tamaño máximo de 10MB`)
+  }
 }
 
 const removeFile = (index) => {
@@ -276,6 +297,71 @@ const formatFileSize = (bytes) => {
   const sizes = ['Bytes', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
+}
+
+// Funciones para manejar iconos de archivos
+const getFileExtension = (fileName) => {
+  if (!fileName) return ''
+  const ext = fileName.split('.').pop().toLowerCase()
+  return ext
+}
+
+const getFileIcon = (fileName) => {
+  const ext = getFileExtension(fileName)
+  const iconMap = {
+    'pdf': 'pi pi-file-pdf',
+    'doc': 'pi pi-file-word',
+    'docx': 'pi pi-file-word',
+    'xls': 'pi pi-file-excel',
+    'xlsx': 'pi pi-file-excel',
+    'ppt': 'pi pi-file',
+    'pptx': 'pi pi-file',
+    'txt': 'pi pi-file',
+    'png': 'pi pi-image',
+    'jpg': 'pi pi-image',
+    'jpeg': 'pi pi-image',
+    'gif': 'pi pi-image',
+    'webp': 'pi pi-image',
+    'svg': 'pi pi-image',
+    'zip': 'pi pi-file-zip',
+    'rar': 'pi pi-file-zip',
+    '7z': 'pi pi-file-zip'
+  }
+  return iconMap[ext] || 'pi pi-file'
+}
+
+const getFileIconClass = (fileName) => {
+  const ext = getFileExtension(fileName)
+  if (ext === 'pdf') return 'icon-pdf'
+  if (['doc', 'docx'].includes(ext)) return 'icon-word'
+  if (['xls', 'xlsx'].includes(ext)) return 'icon-excel'
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) return 'icon-image'
+  if (['zip', 'rar', '7z'].includes(ext)) return 'icon-zip'
+  return 'icon-default'
+}
+
+const getFileTypeLabel = (fileName) => {
+  const ext = getFileExtension(fileName)
+  const labelMap = {
+    'pdf': 'Documento PDF',
+    'doc': 'Documento Word',
+    'docx': 'Documento Word',
+    'xls': 'Hoja de cálculo',
+    'xlsx': 'Hoja de cálculo',
+    'ppt': 'Presentación',
+    'pptx': 'Presentación',
+    'txt': 'Archivo de texto',
+    'png': 'Imagen PNG',
+    'jpg': 'Imagen JPEG',
+    'jpeg': 'Imagen JPEG',
+    'gif': 'Imagen GIF',
+    'webp': 'Imagen WebP',
+    'svg': 'Imagen SVG',
+    'zip': 'Archivo comprimido',
+    'rar': 'Archivo comprimido',
+    '7z': 'Archivo comprimido'
+  }
+  return labelMap[ext] || 'Archivo'
 }
 
 const handleSubmit = async () => {
@@ -453,18 +539,75 @@ const handleSubmit = async () => {
   min-height: 120px;
 }
 
-.form-hint {
-.form-hint {
+.label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.char-counter {
   font-size: 12px;
-  color: #666;
-  margin: 0;
+  color: #9ca3af;
+  font-weight: 500;
+  padding: 2px 8px;
+  background: #f3f4f6;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+}
+
+.char-counter.counter-warning {
+  color: #f59e0b;
+  background: #fef3c7;
+}
+
+.char-counter.counter-danger {
+  color: #ef4444;
+  background: #fee2e2;
+}
+
+.form-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #6b7280;
+  margin: 4px 0 0 0;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border-radius: 6px;
+  border-left: 3px solid #cbd5e1;
+}
+
+.form-hint i {
+  font-size: 14px;
+  color: #9ca3af;
+}
+
+.form-hint.form-hint-warning {
+  background: #fffbeb;
+  border-left-color: #f59e0b;
+  color: #92400e;
+}
+
+.form-hint.form-hint-warning i {
+  color: #f59e0b;
 }
 
 .form-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   color: #ef4444;
-  font-size: 13px;
-  margin: 2px 0 0 0;
+  font-size: 12px;
+  margin: 4px 0 0 0;
+  padding: 8px 12px;
+  background: #fef2f2;
+  border-radius: 6px;
+  border-left: 3px solid #ef4444;
 }
+
+.form-error i {
+  font-size: 14px;
 }
 
 .upload-area {
@@ -518,25 +661,78 @@ const handleSubmit = async () => {
 .file-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  background: #f5f5f5;
-  border-radius: 6px;
+  gap: 12px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  transition: all 0.2s ease;
 }
 
-.file-item i {
-  color: #4F39F6;
+.file-item:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.file-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.file-icon i {
+  font-size: 18px;
+  color: white;
+}
+
+.file-icon.icon-pdf {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.file-icon.icon-word {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+}
+
+.file-icon.icon-excel {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+}
+
+.file-icon.icon-image {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+}
+
+.file-icon.icon-zip {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.file-icon.icon-default {
+  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+}
+
+.file-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .file-name {
-  flex: 1;
-  font-size: 14px;
-  color: #333;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.file-size {
+.file-meta {
   font-size: 12px;
-  color: #666;
+  color: #64748b;
 }
 
 .btn-remove-file {

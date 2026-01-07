@@ -201,6 +201,7 @@ class TicketService {
         fechaActualizacion: data.fechaAsignacion,
         idSolicitante: data.idSolicitante,
         solicitante: data.nombreSolicitante || 'N/A',
+        idGestorAsignado: data.idGestorAsignado || null,
         gestor: data.nombreGestorAsignado || null,
         archivoUrl: data.archivoUrl || null,
         idPrioridad: data.idPrioridad,
@@ -285,10 +286,12 @@ class TicketService {
   async updateTicket(id, updates) {
     try {
       const payload = {
-        asunto: updates.asunto,
-        descripcion: updates.descripcion,
-        idPrioridad: updates.idPrioridad
+        asunto: updates.asunto.trim(),
+        descripcion: updates.descripcion.trim(),
+        idPrioridad: parseInt(updates.idPrioridad, 10)
       }
+
+      console.log('📤 Enviando actualización:', payload)
 
       const data = await apiService.put(`/Solicitudes/${id}`, payload)
       

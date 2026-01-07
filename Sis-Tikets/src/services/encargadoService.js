@@ -98,18 +98,33 @@ class EncargadoService {
   }
 
   /**
-   * Verifica si un usuario es encargado de un área
+   * Verifica si un usuario es encargado ACTIVO de un área
    * @param {number} idUsuario - ID del usuario
    * @param {number} idArea - ID del área
-   * @returns {Promise<boolean>}
+   * @returns {Promise<{esEncargado: boolean, activo: boolean}>}
    */
   async verificarEncargado(idUsuario, idArea) {
     try {
       const result = await apiService.get(`/Encargados/verificar/${idUsuario}/${idArea}`)
-      return result
+      
+      // Si el API devuelve un boolean simple, convertirlo a objeto
+      if (typeof result === 'boolean') {
+        return { esEncargado: result, activo: result }
+      }
+      
+      // Si devuelve un objeto, asegurar que tenga la estructura esperada
+      if (typeof result === 'object' && result !== null) {
+        return {
+          esEncargado: result.esEncargado === true,
+          activo: result.activo !== false // Por defecto true si no viene
+        }
+      }
+      
+      return { esEncargado: false, activo: false }
     } catch (error) {
       console.error('Error verificando encargado:', error)
-      throw error
+      // En caso de error, no es encargado
+      return { esEncargado: false, activo: false }
     }
   }
 

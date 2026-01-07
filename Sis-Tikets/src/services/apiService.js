@@ -30,9 +30,13 @@ class ApiService {
       const response = await fetch(`${this.baseURL}${endpoint}`, config)
 
       if (response.status === 401) {
-        localStorage.clear()
-        window.location.href = '/login'
-        throw new Error('No autorizado')
+        // Solo redirigir si no estamos en el login (token expirado)
+        // Si estamos en login, solo lanzar el error
+        if (requiresAuth) {
+          localStorage.clear()
+          window.location.href = '/login'
+        }
+        throw new Error('Usuario o contraseña incorrectos')
       }
 
       if (response.status === 204) return null

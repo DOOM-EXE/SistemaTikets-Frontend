@@ -87,6 +87,7 @@ const routes = [
     meta: {
       requiresAuth: true,
       role: 'Admin',
+      requiresSuperAdmin: true,
       title: 'Gestión de Usuarios'
     }
   },
@@ -107,6 +108,7 @@ const routes = [
     meta: {
       requiresAuth: true,
       role: 'Admin',
+      requiresSuperAdmin: true,
       title: 'Crear Usuario'
     }
   },
@@ -117,6 +119,7 @@ const routes = [
     meta: {
       requiresAuth: true,
       role: 'Admin',
+      requiresSuperAdmin: true,
       title: 'Editar Usuario'
     }
   },
@@ -178,6 +181,21 @@ router.beforeEach((to, from, next) => {
   if (requiresAuth && to.meta.role && user) {
     if (user.rol !== to.meta.role) {
       // Redirigir al panel correcto según su rol
+      if (user.rol === 'Admin') {
+        next('/panel-admin')
+      } else if (user.rol === 'Gestor') {
+        next('/panel-gestor')
+      } else {
+        next('/panel-solicitante')
+      }
+      return
+    }
+  }
+
+  // Verificar si la ruta requiere SuperAdmin (solo usuario con ID 1)
+  if (requiresAuth && to.meta.requiresSuperAdmin && user) {
+    if (user.id !== 1) {
+      // No es SuperAdmin, redirigir al panel correspondiente
       if (user.rol === 'Admin') {
         next('/panel-admin')
       } else if (user.rol === 'Gestor') {

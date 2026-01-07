@@ -67,11 +67,11 @@ const props = defineProps({
   },
   idArea: {
     type: Number,
-    required: true
+    default: null
   },
   nombreArea: {
     type: String,
-    required: true
+    default: ''
   }
 })
 

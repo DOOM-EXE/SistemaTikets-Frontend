@@ -10,7 +10,7 @@
         </div>
       </div>
       <div class="header-actions">
-        <button class="btn-header" @click="goToUsuarios">
+        <button v-if="isSuperAdmin" class="btn-header" @click="goToUsuarios">
           <i class="pi pi-users"></i>
           Usuarios
         </button>
@@ -114,6 +114,16 @@
             </div>
 
             <div class="filter-field">
+              <label>Área</label>
+              <select v-model="filters.idArea" class="filter-select">
+                <option value="">Todas</option>
+                <option v-for="area in areas" :key="area.idArea" :value="area.idArea">
+                  {{ area.nombre }}
+                </option>
+              </select>
+            </div>
+
+            <div class="filter-field">
               <label>Asignación</label>
               <select v-model="filters.asignacion" class="filter-select">
                 <option value="">Todos</option>
@@ -187,6 +197,9 @@
                 <td>
                   <span v-if="solicitud.gestor" class="asignado-badge">
                     {{ solicitud.gestor }}
+                  </span>
+                  <span v-else-if="solicitud.estado === 'rechazada' || solicitud.estado === 'cancelada'" class="sin-asignar-badge">
+                    Sin asignar
                   </span>
                   <button 
                     v-else 
@@ -321,6 +334,7 @@ const currentPage = ref(1)
 const itemsPerPage = ref(15)
 const userName = ref('')
 const userRole = ref('')
+const isSuperAdmin = ref(false)
 
 // Modal asignar gestor
 const mostrarModalAsignar = ref(false)
@@ -332,11 +346,13 @@ const asignando = ref(false)
 // Catálogos
 const estados = ref([])
 const prioridades = ref([])
+const areas = ref([])
 
 // Filtros
 const filters = ref({
   idEstado: '',
   idPrioridad: '',
+  idArea: '',
   asignacion: '',
   fechaDesde: '',
   fechaHasta: '',
@@ -436,12 +452,14 @@ const asignarGestor = async () => {
 
 const loadCatalogos = async () => {
   try {
-    const [estadosData, prioridadesData] = await Promise.all([
+    const [estadosData, prioridadesData, areasData] = await Promise.all([
       catalogoService.getEstados(),
-      catalogoService.getPrioridades()
+      catalogoService.getPrioridades(),
+      catalogoService.getAreas()
     ])
     estados.value = estadosData
     prioridades.value = prioridadesData
+    areas.value = areasData
   } catch (error) {
     console.error('Error cargando catálogos:', error)
   }
@@ -456,6 +474,7 @@ const loadSolicitudes = async () => {
     
     if (filters.value.idEstado) queryParams.idEstado = filters.value.idEstado
     if (filters.value.idPrioridad) queryParams.idPrioridad = filters.value.idPrioridad
+    if (filters.value.idArea) queryParams.idArea = filters.value.idArea
     if (filters.value.fechaDesde) queryParams.fechaDesde = filters.value.fechaDesde
     if (filters.value.fechaHasta) queryParams.fechaHasta = filters.value.fechaHasta
     if (filters.value.busqueda) queryParams.busqueda = filters.value.busqueda
@@ -465,6 +484,7 @@ const loadSolicitudes = async () => {
     
     if (queryParams.idEstado) params.append('idEstado', queryParams.idEstado)
     if (queryParams.idPrioridad) params.append('idPrioridad', queryParams.idPrioridad)
+    if (queryParams.idArea) params.append('idArea', queryParams.idArea)
     if (queryParams.fechaDesde) params.append('fechaDesde', queryParams.fechaDesde)
     if (queryParams.fechaHasta) params.append('fechaHasta', queryParams.fechaHasta)
     if (queryParams.busqueda) params.append('busqueda', queryParams.busqueda)
@@ -591,6 +611,7 @@ onMounted(async () => {
   if (user) {
     userName.value = user.nombre || user.username
     userRole.value = user.rol || 'Admin'
+    isSuperAdmin.value = user.id === 1
   }
   
   await loadCatalogos()
@@ -796,7 +817,7 @@ onMounted(async () => {
 
 .filters-row {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 15px;
   margin-bottom: 15px;
 }

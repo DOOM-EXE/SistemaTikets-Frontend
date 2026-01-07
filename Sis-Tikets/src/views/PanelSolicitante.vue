@@ -28,6 +28,7 @@
                 <option value="en-proceso">En proceso</option>
                 <option value="cerrada">Cerrada</option>
                 <option value="resuelto">Resuelto</option>
+                <option value="rechazada">Rechazada</option>
               </select>
             </div>
 
@@ -99,7 +100,7 @@
                   <td>{{ solicitud.codigo || solicitud.numero }}</td>
                   <td>{{ solicitud.area }}</td>
                   <td>{{ solicitud.tipo }}</td>
-                  <td>{{ solicitud.asunto }}</td>
+                  <td class="asunto-cell">{{ solicitud.asunto }}</td>
                   <td>
                     <EstadoBadge :estado="solicitud.estado" />
                   </td>
@@ -164,7 +165,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ticketService, authService } from '@/services'
 import PageHeader from '@/components/layout/PageHeader.vue'
@@ -210,6 +211,12 @@ const loadTickets = async () => {
 onMounted(() => {
   loadTickets()
 })
+
+// Watch para aplicar filtros automáticamente
+watch([filters, searchQuery], () => {
+  currentPage.value = 1
+  loadTickets()
+}, { deep: true })
 
 const toggleFilters = () => {
   showFilters.value = !showFilters.value
@@ -473,6 +480,13 @@ const verSolicitud = (id) => {
   font-size: 14px;
   color: #333;
   border-bottom: 1px solid #f0f0f0;
+}
+
+.asunto-cell {
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .solicitudes-table tbody tr:hover {

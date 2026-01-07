@@ -20,6 +20,7 @@ export class Ticket {
     solicitante = null,
     idSolicitante = null,
     asignadoId = null,
+    idGestorAsignado = null,
     gestor = null,
     comentarios = [],
     archivos = [],
@@ -45,6 +46,7 @@ export class Ticket {
     this.solicitante = solicitante
     this.idSolicitante = idSolicitante || solicitanteId
     this.asignadoId = asignadoId
+    this.idGestorAsignado = idGestorAsignado
     this.gestor = gestor
     this.comentarios = comentarios
     this.archivos = archivos

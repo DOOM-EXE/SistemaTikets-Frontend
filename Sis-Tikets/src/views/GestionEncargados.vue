@@ -209,7 +209,8 @@ const confirmarEliminar = async (idEncargado) => {
 
 const loadEncargados = async () => {
   try {
-    encargados.value = await encargadoService.getAll()
+    const data = await encargadoService.getAll()
+    encargados.value = data
   } catch (error) {
     console.error('Error cargando encargados:', error)
     alert('Error al cargar encargados')
@@ -218,7 +219,8 @@ const loadEncargados = async () => {
 
 const loadAreas = async () => {
   try {
-    areas.value = await catalogoService.getAreas()
+    const data = await catalogoService.getAreas()
+    areas.value = data
   } catch (error) {
     console.error('Error cargando áreas:', error)
     alert('Error al cargar áreas')

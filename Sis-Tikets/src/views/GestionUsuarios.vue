@@ -92,15 +92,6 @@
                 </option>
               </select>
             </div>
-
-            <div class="filter-field">
-              <label>Estado</label>
-              <select v-model="filters.estado" class="filter-select">
-                <option value="">Todos</option>
-                <option value="activo">Activo</option>
-                <option value="inactivo">Inactivo</option>
-              </select>
-            </div>
           </div>
 
           <div class="search-row">
@@ -129,19 +120,15 @@
                 <th>ID</th>
                 <th>Nombre</th>
                 <th>Username</th>
-                <th>Email</th>
-                <th>Teléfono</th>
                 <th>Rol</th>
                 <th>Área</th>
-                <th>Encargado</th>
-                <th>Estado</th>
                 <th>Fecha Creación</th>
                 <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="usuariosFiltrados.length === 0">
-                <td colspan="11" class="no-data">No hay usuarios para mostrar</td>
+                <td colspan="7" class="no-data">No hay usuarios para mostrar</td>
               </tr>
               <tr v-for="usuario in paginatedUsuarios" :key="usuario.idUsuario">
                 <td>#{{ usuario.idUsuario }}</td>
@@ -149,27 +136,12 @@
                 <td>
                   <span class="username-badge">{{ usuario.username }}</span>
                 </td>
-                <td>{{ usuario.email || 'correo@correo' }}</td>
-                <td>{{ usuario.telefono || '555-555-555' }}</td>
                 <td>
                   <span :class="['badge-rol', `badge-${usuario.rol.toLowerCase()}`]">
                     {{ usuario.rol }}
                   </span>
                 </td>
                 <td>{{ usuario.nombreArea }}</td>
-                <td>
-                  <span v-if="esEncargado(usuario)" class="badge-encargado">
-                    <i class="pi pi-star-fill"></i>
-                    Encargado
-                  </span>
-                  <span v-else class="badge-no-encargado">-</span>
-                </td>
-                <td>
-                  <span :class="['badge-estado', usuario.activo ? 'badge-activo' : 'badge-inactivo']">
-                    <i :class="usuario.activo ? 'pi pi-check-circle' : 'pi pi-times-circle'"></i>
-                    {{ usuario.activo ? 'Activo' : 'Inactivo' }}
-                  </span>
-                </td>
                 <td>{{ formatFecha(usuario.fechaCreacionUsuario) }}</td>
                 <td>
                   <div class="action-buttons">
@@ -372,14 +344,54 @@ const verUsuario = (usuario) => {
 }
 
 const eliminarUsuario = async (usuario) => {
-  if (confirm(`¿Estás seguro de que deseas eliminar al usuario "${usuario.nombreCompleto}"?\n\nEsta acción no se puede deshacer.`)) {
+  // Determinar el mensaje según el rol
+  let mensajeConfirmacion = `¿Estás seguro de que deseas eliminar al usuario "${usuario.nombreCompleto}"?`
+  
+  if (usuario.rol === 'Gestor') {
+    mensajeConfirmacion += '\n\nSi el gestor tiene solicitudes asignadas, estas serán desasignadas automáticamente.'
+  } else if (usuario.rol === 'Solicitante') {
+    mensajeConfirmacion += '\n\nNota: Si el usuario tiene solicitudes creadas, no podrá ser eliminado.'
+  }
+  
+  mensajeConfirmacion += '\n\nEsta acción no se puede deshacer.'
+  
+  if (confirm(mensajeConfirmacion)) {
     try {
       await apiService.delete(`/Usuarios/${usuario.idUsuario}`)
-      alert('Usuario eliminado exitosamente')
+      
+      // Mensaje de éxito según el rol
+      if (usuario.rol === 'Gestor') {
+        alert('Usuario eliminado. Las solicitudes asignadas han sido desasignadas automáticamente.')
+      } else {
+        alert('Usuario eliminado correctamente.')
+      }
+      
       await loadUsuarios()
     } catch (error) {
       console.error('Error eliminando usuario:', error)
-      alert(error.response?.data?.message || 'Error al eliminar el usuario')
+      
+      // Manejar errores específicos del API
+      const errorMessage = error.response?.data?.message || error.message || ''
+      
+      // Detectar error de solicitudes activas (como solicitante)
+      if (errorMessage.includes('solicitud(es) activa(s)') || errorMessage.includes('solicitudes activa')) {
+        // Extraer los códigos de solicitud del mensaje si están disponibles
+        const codigosMatch = errorMessage.match(/SOL-\d{4}-\d{5}/g)
+        let mensaje = 'No se puede eliminar el usuario porque tiene solicitudes activas.\n\n'
+        
+        if (codigosMatch && codigosMatch.length > 0) {
+          mensaje += `Solicitudes pendientes: ${codigosMatch.join(', ')}\n\n`
+        }
+        
+        mensaje += 'Las solicitudes deben estar en estado Resuelta, Cerrada o Cancelada para poder eliminar el usuario.\n\n'
+        mensaje += 'Opciones:\n• Resolver o cerrar las solicitudes pendientes\n• Cancelar las solicitudes'
+        
+        alert(mensaje)
+      } else if (errorMessage.includes('solicitudes creadas') || error.response?.status === 400) {
+        alert('No se puede eliminar. El usuario tiene solicitudes creadas.\n\nOpciones:\n• Eliminar primero las solicitudes del usuario')
+      } else {
+        alert(errorMessage || 'Error al eliminar el usuario')
+      }
     }
   }
 }

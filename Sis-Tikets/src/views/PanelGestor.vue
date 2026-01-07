@@ -67,7 +67,7 @@
               <label>Estado</label>
               <select v-model="filters.idEstado" class="filter-select">
                 <option value="">Todos</option>
-                <option v-for="estado in estados" :key="estado.id" :value="estado.id">
+                <option v-for="estado in estados" :key="estado.idEstado" :value="estado.idEstado">
                   {{ estado.nombre }}
                 </option>
               </select>
@@ -77,7 +77,7 @@
               <label>Prioridad</label>
               <select v-model="filters.idPrioridad" class="filter-select">
                 <option value="">Todos</option>
-                <option v-for="prioridad in prioridades" :key="prioridad.id" :value="prioridad.id">
+                <option v-for="prioridad in prioridades" :key="prioridad.idPrioridad" :value="prioridad.idPrioridad">
                   {{ prioridad.nombre }}
                 </option>
               </select>
@@ -214,7 +214,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { authService, catalogoService, ticketService, apiService } from '@/services'
+import { authService, catalogoService, ticketService, apiService, encargadoService } from '@/services'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import EstadoBadge from '@/components/ticket/EstadoBadge.vue'
 import PrioridadBadge from '@/components/ticket/PrioridadBadge.vue'
@@ -457,7 +457,8 @@ onMounted(async () => {
   const user = authService.getUser()
   if (user) {
     currentUserId.value = user.id
-    esEncargado.value = user.esEncargado || false
+    // Inicialmente usar el valor del login, pero verificar después
+    esEncargado.value = false
     
     // Obtener información actualizada del usuario desde el API
     try {
@@ -473,6 +474,23 @@ onMounted(async () => {
           area: usuarioActual.idAreaAsignada
         }
         localStorage.setItem('user', JSON.stringify(updatedUser))
+        
+        // Verificar si es encargado ACTIVO del área
+        if (usuarioActual.idAreaAsignada) {
+          try {
+            const resultEncargado = await encargadoService.verificarEncargado(user.id, usuarioActual.idAreaAsignada)
+            esEncargado.value = resultEncargado.esEncargado === true && resultEncargado.activo === true
+            console.log('🔍 Verificación de encargado en PanelGestor:', {
+              usuario: user.nombre,
+              idArea: usuarioActual.idAreaAsignada,
+              resultado: resultEncargado,
+              esEncargadoFinal: esEncargado.value
+            })
+          } catch (encError) {
+            console.error('Error verificando estado de encargado:', encError)
+            esEncargado.value = false
+          }
+        }
       } else {
         areaName.value = user.nombreArea || 'Área no asignada'
       }
