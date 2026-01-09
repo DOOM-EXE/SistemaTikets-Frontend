@@ -92,6 +92,23 @@
             </select>
           </div>
 
+          <!-- Estado Activo -->
+          <div class="form-group">
+            <label class="form-label">Estado del Usuario</label>
+            <div class="toggle-container">
+              <label class="toggle-switch">
+                <input type="checkbox" v-model="formData.activo" />
+                <span class="toggle-slider"></span>
+              </label>
+              <span :class="['toggle-label', formData.activo ? 'active' : 'inactive']">
+                {{ formData.activo ? 'Activo' : 'Inactivo' }}
+              </span>
+            </div>
+            <small class="form-hint">
+              Los usuarios inactivos no podrán acceder al sistema
+            </small>
+          </div>
+
           <!-- Cambiar contraseña -->
           <div class="form-section">
             <div class="section-header" @click="showPasswordSection = !showPasswordSection">
@@ -188,7 +205,8 @@ const formData = ref({
   nombreCompleto: '',
   username: '',
   idRol: '',
-  idAreaAsignada: ''
+  idAreaAsignada: '',
+  activo: true
 })
 
 const passwordData = ref({
@@ -209,7 +227,8 @@ const loadUsuario = async () => {
       nombreCompleto: data.nombreCompleto,
       username: data.username,
       idRol: data.idRol,
-      idAreaAsignada: data.idAreaAsignada
+      idAreaAsignada: data.idAreaAsignada,
+      activo: data.activo !== undefined ? data.activo : true
     }
   } catch (error) {
     console.error('Error cargando usuario:', error)
@@ -241,7 +260,8 @@ const actualizarUsuario = async () => {
       nombreCompleto: formData.value.nombreCompleto,
       username: formData.value.username,
       idRol: parseInt(formData.value.idRol),
-      idAreaAsignada: parseInt(formData.value.idAreaAsignada)
+      idAreaAsignada: parseInt(formData.value.idAreaAsignada),
+      activo: formData.value.activo
     }
 
     // Si hay nueva contraseña, agregarla
@@ -455,6 +475,71 @@ onMounted(async () => {
   margin-top: 6px;
   font-size: 12px;
   color: #6b7280;
+}
+
+/* Toggle Switch */
+.toggle-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 26px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #e5e7eb;
+  transition: 0.3s;
+  border-radius: 34px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background-color: #10b981;
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+  transform: translateX(24px);
+}
+
+.toggle-label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.toggle-label.active {
+  color: #10b981;
+}
+
+.toggle-label.inactive {
+  color: #ef4444;
 }
 
 .form-section {

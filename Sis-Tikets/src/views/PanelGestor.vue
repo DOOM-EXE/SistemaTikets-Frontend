@@ -13,13 +13,13 @@
     <div class="panel-content">
       <!-- Stats Cards -->
       <div class="stats-container">
-        <div class="stat-card asignadas">
+        <div class="stat-card nuevas">
           <div class="stat-icon">
-            <i class="pi pi-file"></i>
+            <i class="pi pi-info-circle"></i>
           </div>
           <div class="stat-content">
-            <span class="stat-label">Solicitudes Asignadas</span>
-            <span class="stat-value">{{ stats.asignadas }}</span>
+            <span class="stat-label">Nuevas</span>
+            <span class="stat-value">{{ stats.nuevas }}</span>
           </div>
         </div>
 
@@ -33,13 +33,13 @@
           </div>
         </div>
 
-        <div class="stat-card sin-asignar">
+        <div class="stat-card cerradas">
           <div class="stat-icon">
-            <i class="pi pi-exclamation-circle"></i>
+            <i class="pi pi-lock"></i>
           </div>
           <div class="stat-content">
-            <span class="stat-label">Sin Asignar</span>
-            <span class="stat-value">{{ stats.sinAsignar }}</span>
+            <span class="stat-label">Cerradas</span>
+            <span class="stat-value">{{ stats.cerradas }}</span>
           </div>
         </div>
 
@@ -50,6 +50,26 @@
           <div class="stat-content">
             <span class="stat-label">Resueltas</span>
             <span class="stat-value">{{ stats.resueltas }}</span>
+          </div>
+        </div>
+
+        <div class="stat-card rechazadas">
+          <div class="stat-icon">
+            <i class="pi pi-times-circle"></i>
+          </div>
+          <div class="stat-content">
+            <span class="stat-label">Rechazadas</span>
+            <span class="stat-value">{{ stats.rechazadas }}</span>
+          </div>
+        </div>
+
+        <div class="stat-card sin-asignar">
+          <div class="stat-icon">
+            <i class="pi pi-exclamation-circle"></i>
+          </div>
+          <div class="stat-content">
+            <span class="stat-label">Sin Asignar</span>
+            <span class="stat-value">{{ stats.sinAsignar }}</span>
           </div>
         </div>
       </div>
@@ -293,10 +313,12 @@ const solicitudes = computed(() => {
 // Stats calculados sobre solicitudes filtradas
 const stats = computed(() => {
   return {
-    asignadas: solicitudes.value.filter(s => s.gestor).length,
+    nuevas: solicitudes.value.filter(s => s.estado === 'nuevo').length,
     enProceso: solicitudes.value.filter(s => s.estado === 'en-proceso').length,
-    sinAsignar: solicitudes.value.filter(s => !s.gestor).length,
-    resueltas: solicitudes.value.filter(s => s.estado === 'resuelto').length
+    cerradas: solicitudes.value.filter(s => s.estado === 'cerrada').length,
+    resueltas: solicitudes.value.filter(s => s.estado === 'resuelto').length,
+    rechazadas: solicitudes.value.filter(s => s.estado === 'rechazada').length,
+    sinAsignar: solicitudes.value.filter(s => !s.gestor).length
   }
 })
 
@@ -556,7 +578,7 @@ onMounted(async () => {
 /* Stats Cards */
 .stats-container {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 20px;
   margin-bottom: 30px;
 }
@@ -569,23 +591,12 @@ onMounted(async () => {
   align-items: center;
   gap: 15px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border-left: 4px solid;
+  transition: all 0.3s ease;
 }
 
-.stat-card.asignadas {
-  border-left-color: #3b82f6;
-}
-
-.stat-card.en-proceso {
-  border-left-color: #f59e0b;
-}
-
-.stat-card.sin-asignar {
-  border-left-color: #ef4444;
-}
-
-.stat-card.resueltas {
-  border-left-color: #10b981;
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .stat-icon {
@@ -599,20 +610,28 @@ onMounted(async () => {
   color: white;
 }
 
-.stat-card.asignadas .stat-icon {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+.stat-card.nuevas .stat-icon {
+  background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
 }
 
 .stat-card.en-proceso .stat-icon {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  background: linear-gradient(135deg, #f57c00 0%, #e65100 100%);
 }
 
-.stat-card.sin-asignar .stat-icon {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+.stat-card.cerradas .stat-icon {
+  background: linear-gradient(135deg, #388e3c 0%, #2e7d32 100%);
 }
 
 .stat-card.resueltas .stat-icon {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, #7b1fa2 0%, #6a1b9a 100%);
+}
+
+.stat-card.rechazadas .stat-icon {
+  background: linear-gradient(135deg, #c62828 0%, #b71c1c 100%);
+}
+
+.stat-card.sin-asignar .stat-icon {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
 }
 
 .stat-content {
@@ -912,7 +931,7 @@ onMounted(async () => {
 
 @media (max-width: 1200px) {
   .stats-container {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
   }
 
   .filters-row {

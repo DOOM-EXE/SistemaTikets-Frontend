@@ -222,24 +222,8 @@ const toggleFilters = () => {
   showFilters.value = !showFilters.value
 }
 
-const formatEstado = (estado) => {
-  const map = {
-    'nuevo': 'Nuevo',
-    'en-proceso': 'En proceso',
-    'cerrada': 'Cerrada',
-    'resuelto': 'Resuelto'
-  }
-  return map[estado] || estado
-}
 
-const formatPrioridad = (prioridad) => {
-  const map = {
-    'alta': 'Alta',
-    'media': 'Media',
-    'baja': 'Baja'
-  }
-  return map[prioridad] || prioridad
-}
+
 
 const totalPages = computed(() => Math.ceil(solicitudes.value.length / itemsPerPage))
 

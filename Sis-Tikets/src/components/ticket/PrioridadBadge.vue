@@ -39,4 +39,8 @@ defineProps({
   background: #e8f5e9;
   color: #388e3c;
 }
+  .badge-prioridad.badge-critica {
+    background: #ffcdd2;
+    color: #b71c1c;
+  }
 </style>

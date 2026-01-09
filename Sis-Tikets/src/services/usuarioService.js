@@ -49,6 +49,21 @@ class UsuarioService {
       throw error
     }
   }
+
+  /**
+   * Activa o desactiva un usuario
+   * @param {number} idUsuario - ID del usuario
+   * @param {boolean} activo - true para activar, false para desactivar
+   * @returns {Promise<Object>}
+   */
+  async toggleEstado(idUsuario, activo) {
+    try {
+      return await apiService.patch(`/Usuarios/${idUsuario}/estado`, { activo })
+    } catch (error) {
+      console.error('Error cambiando estado del usuario:', error)
+      throw error
+    }
+  }
 }
 
 // Exportar instancia singleton

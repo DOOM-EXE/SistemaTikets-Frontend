@@ -22,6 +22,10 @@
           <i class="pi pi-cog"></i>
           Catálogos
         </button>
+        <button class="btn-header btn-reportes" @click="goToReportes">
+          <i class="pi pi-chart-bar"></i>
+          Reportes
+        </button>
         <button class="btn-logout" @click="handleLogout">
           <i class="pi pi-sign-out"></i>
           Cerrar sesión
@@ -38,7 +42,7 @@
             <i class="pi pi-info-circle"></i>
           </div>
           <div class="stat-content">
-            <span class="stat-label">Nuevas Solicitudes</span>
+            <span class="stat-label">Nuevas</span>
             <span class="stat-value">{{ stats.nuevas }}</span>
           </div>
         </div>
@@ -53,13 +57,13 @@
           </div>
         </div>
 
-        <div class="stat-card sin-asignar">
+        <div class="stat-card cerradas">
           <div class="stat-icon">
-            <i class="pi pi-exclamation-circle"></i>
+            <i class="pi pi-lock"></i>
           </div>
           <div class="stat-content">
-            <span class="stat-label">Sin Asignar</span>
-            <span class="stat-value">{{ stats.sinAsignar }}</span>
+            <span class="stat-label">Cerradas</span>
+            <span class="stat-value">{{ stats.cerradas }}</span>
           </div>
         </div>
 
@@ -73,13 +77,23 @@
           </div>
         </div>
 
-        <div class="stat-card total-mes">
+        <div class="stat-card rechazadas">
           <div class="stat-icon">
-            <i class="pi pi-chart-bar"></i>
+            <i class="pi pi-times-circle"></i>
           </div>
           <div class="stat-content">
-            <span class="stat-label">Total del mes</span>
-            <span class="stat-value">{{ stats.totalMes }}</span>
+            <span class="stat-label">Rechazadas</span>
+            <span class="stat-value">{{ stats.rechazadas }}</span>
+          </div>
+        </div>
+
+        <div class="stat-card sin-asignar">
+          <div class="stat-icon">
+            <i class="pi pi-exclamation-circle"></i>
+          </div>
+          <div class="stat-content">
+            <span class="stat-label">Sin Asignar</span>
+            <span class="stat-value">{{ stats.sinAsignar }}</span>
           </div>
         </div>
       </div>
@@ -198,17 +212,9 @@
                   <span v-if="solicitud.gestor" class="asignado-badge">
                     {{ solicitud.gestor }}
                   </span>
-                  <span v-else-if="solicitud.estado === 'rechazada' || solicitud.estado === 'cancelada'" class="sin-asignar-badge">
+                  <span v-else class="sin-asignar-badge">
                     Sin asignar
                   </span>
-                  <button 
-                    v-else 
-                    class="btn-asignar"
-                    @click="abrirModalAsignar(solicitud)"
-                  >
-                    <i class="pi pi-user-plus"></i>
-                    Asignar
-                  </button>
                 </td>
                 <td>{{ solicitud.fecha }}</td>
                 <td>
@@ -273,48 +279,7 @@
       </div>
     </div>
 
-    <!-- Modal Asignar Gestor -->
-    <div v-if="mostrarModalAsignar" class="modal-overlay" @click="cerrarModalAsignar">
-      <div class="modal-content" @click.stop>
-        <div class="modal-header">
-          <h3>Asignar Gestor</h3>
-          <button class="btn-close-modal" @click="cerrarModalAsignar">
-            <i class="pi pi-times"></i>
-          </button>
-        </div>
-        <div class="modal-body">
-          <p class="modal-info">
-            <strong>Solicitud:</strong> {{ solicitudSeleccionada?.codigo }} - {{ solicitudSeleccionada?.asunto }}
-          </p>
-          <p class="modal-info">
-            <strong>Área:</strong> {{ solicitudSeleccionada?.area }}
-          </p>
-          
-          <div class="form-group">
-            <label class="form-label">Seleccionar Gestor</label>
-            <select v-model="gestorSeleccionado" class="form-select">
-              <option value="">Seleccione un gestor...</option>
-              <option v-for="gestor in gestores" :key="gestor.idUsuario" :value="gestor.idUsuario">
-                {{ gestor.nombre }} - {{ gestor.nombreArea }}
-              </option>
-            </select>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-modal-cancel" @click="cerrarModalAsignar" :disabled="asignando">
-            Cancelar
-          </button>
-          <button 
-            class="btn-modal-confirm" 
-            @click="asignarGestor" 
-            :disabled="!gestorSeleccionado || asignando"
-          >
-            <i :class="asignando ? 'pi pi-spin pi-spinner' : 'pi pi-check'"></i>
-            {{ asignando ? 'Asignando...' : 'Asignar' }}
-          </button>
-        </div>
-      </div>
-    </div>
+
   </div>
 </template>
 
@@ -336,13 +301,6 @@ const userName = ref('')
 const userRole = ref('')
 const isSuperAdmin = ref(false)
 
-// Modal asignar gestor
-const mostrarModalAsignar = ref(false)
-const solicitudSeleccionada = ref(null)
-const gestorSeleccionado = ref('')
-const gestores = ref([])
-const asignando = ref(false)
-
 // Catálogos
 const estados = ref([])
 const prioridades = ref([])
@@ -361,21 +319,13 @@ const filters = ref({
 
 // Stats
 const stats = computed(() => {
-  const currentDate = new Date()
-  const currentMonth = currentDate.getMonth()
-  const currentYear = currentDate.getFullYear()
-  
-  const solicitudesDelMes = solicitudes.value.filter(s => {
-    const fechaSolicitud = new Date(s.fechaCreacion || s.fecha)
-    return fechaSolicitud.getMonth() === currentMonth && fechaSolicitud.getFullYear() === currentYear
-  })
-
   return {
     nuevas: solicitudes.value.filter(s => s.estado === 'nuevo').length,
     enProceso: solicitudes.value.filter(s => s.estado === 'en-proceso').length,
-    sinAsignar: solicitudes.value.filter(s => !s.gestor).length,
+    cerradas: solicitudes.value.filter(s => s.estado === 'cerrada').length,
     resueltas: solicitudes.value.filter(s => s.estado === 'resuelto').length,
-    totalMes: solicitudesDelMes.length
+    rechazadas: solicitudes.value.filter(s => s.estado === 'rechazada').length,
+    sinAsignar: solicitudes.value.filter(s => !s.gestor).length
   }
 })
 
@@ -400,54 +350,12 @@ const goToCatalogos = () => {
   router.push('/catalogos')
 }
 
+const goToReportes = () => {
+  router.push('/reportes')
+}
+
 const verSolicitud = (id) => {
   router.push(`/solicitud/${id}`)
-}
-
-const abrirModalAsignar = async (solicitud) => {
-  solicitudSeleccionada.value = solicitud
-  gestorSeleccionado.value = ''
-  mostrarModalAsignar.value = true
-  
-  // Cargar gestores filtrados por el área de la solicitud
-  try {
-    if (solicitud.idArea) {
-      gestores.value = await usuarioService.getGestoresPorArea(solicitud.idArea)
-    } else {
-      gestores.value = await usuarioService.getGestores()
-    }
-  } catch (error) {
-    console.error('Error cargando gestores:', error)
-    alert('Error al cargar la lista de gestores')
-  }
-}
-
-const cerrarModalAsignar = () => {
-  mostrarModalAsignar.value = false
-  solicitudSeleccionada.value = null
-  gestorSeleccionado.value = ''
-}
-
-const asignarGestor = async () => {
-  if (!gestorSeleccionado.value) return
-  
-  try {
-    asignando.value = true
-    
-    await ticketService.asignarGestorASolicitud(
-      solicitudSeleccionada.value.id,
-      gestorSeleccionado.value
-    )
-    
-    alert('Gestor asignado exitosamente')
-    cerrarModalAsignar()
-    await loadSolicitudes()
-  } catch (error) {
-    console.error('Error asignando gestor:', error)
-    alert('Error al asignar el gestor')
-  } finally {
-    asignando.value = false
-  }
 }
 
 const loadCatalogos = async () => {
@@ -695,6 +603,17 @@ onMounted(async () => {
   border-color: #d1d5db;
 }
 
+.btn-header.btn-reportes {
+  background: #7c3aed;
+  color: white;
+  border-color: #7c3aed;
+}
+
+.btn-header.btn-reportes:hover {
+  background: #6d28d9;
+  border-color: #6d28d9;
+}
+
 .btn-logout {
   display: flex;
   align-items: center;
@@ -718,7 +637,7 @@ onMounted(async () => {
 /* Stats */
 .stats-container {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 20px;
   margin-bottom: 30px;
 }
@@ -751,23 +670,27 @@ onMounted(async () => {
 }
 
 .stat-card.nuevas .stat-icon {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
 }
 
 .stat-card.en-proceso .stat-icon {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  background: linear-gradient(135deg, #f57c00 0%, #e65100 100%);
 }
 
 .stat-card.sin-asignar .stat-icon {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+}
+
+.stat-card.cerradas .stat-icon {
+  background: linear-gradient(135deg, #388e3c 0%, #2e7d32 100%);
 }
 
 .stat-card.resueltas .stat-icon {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, #7b1fa2 0%, #6a1b9a 100%);
 }
 
-.stat-card.total-mes .stat-icon {
-  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+.stat-card.rechazadas .stat-icon {
+  background: linear-gradient(135deg, #c62828 0%, #b71c1c 100%);
 }
 
 .stat-content {
@@ -1054,200 +977,15 @@ onMounted(async () => {
   padding: 0 4px;
 }
 
-/* Botón Asignar */
-.btn-asignar {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: #10b981;
-  border: none;
-  border-radius: 6px;
-  color: white;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.btn-asignar:hover {
-  background: #059669;
-  transform: translateY(-1px);
-}
-
-/* Modal */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  animation: fadeIn 0.2s ease;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.modal-content {
-  background: white;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 500px;
-  max-height: 90vh;
-  overflow: hidden;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  animation: slideUp 0.3s ease;
-}
-
-@keyframes slideUp {
-  from {
-    transform: translateY(20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.modal-header h3 {
-  font-size: 18px;
-  font-weight: 600;
-  color: #1a1a1a;
-  margin: 0;
-}
-
-.btn-close-modal {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  color: #6b7280;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.btn-close-modal:hover {
-  background: #f3f4f6;
-  color: #374151;
-}
-
-.modal-body {
-  padding: 24px;
-  max-height: 60vh;
-  overflow-y: auto;
-}
-
-.modal-info {
-  font-size: 14px;
-  color: #374151;
-  margin-bottom: 12px;
-}
-
-.form-group {
-  margin-top: 20px;
-}
-
-.form-label {
-  display: block;
-  font-size: 14px;
-  font-weight: 500;
-  color: #374151;
-  margin-bottom: 8px;
-}
-
-.form-select {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  font-size: 14px;
-  color: #374151;
-  outline: none;
-  transition: all 0.3s ease;
-}
-
-.form-select:focus {
-  border-color: #7c3aed;
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
-}
-
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 16px 24px;
-  border-top: 1px solid #e5e7eb;
-  background: #f9fafb;
-}
-
-.btn-modal-cancel {
-  padding: 10px 20px;
-  background: white;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  color: #374151;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.btn-modal-cancel:hover:not(:disabled) {
-  background: #f3f4f6;
-}
-
-.btn-modal-confirm {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
-  background: #7c3aed;
-  border: none;
-  border-radius: 8px;
-  color: white;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.btn-modal-confirm:hover:not(:disabled) {
-  background: #6d28d9;
-}
-
-.btn-modal-confirm:disabled,
-.btn-modal-cancel:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 @media (max-width: 1400px) {
   .stats-container {
     grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .stats-container {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 

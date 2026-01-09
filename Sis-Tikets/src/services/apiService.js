@@ -82,6 +82,13 @@ class ApiService {
     }, requiresAuth)
   }
 
+  async patch(endpoint, data, requiresAuth = true) {
+    return this.request(endpoint, {
+      method: 'PATCH',
+      body: JSON.stringify(data)
+    }, requiresAuth)
+  }
+
   async delete(endpoint, requiresAuth = true) {
     return this.request(endpoint, { method: 'DELETE' }, requiresAuth)
   }
