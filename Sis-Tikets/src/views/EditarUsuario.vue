@@ -109,16 +109,15 @@
             </small>
           </div>
 
-          <!-- Cambiar contraseña -->
+          <!-- Contraseña temporal -->
           <div class="form-section">
             <div class="section-header" @click="showPasswordSection = !showPasswordSection">
               <i :class="['pi', showPasswordSection ? 'pi-chevron-down' : 'pi-chevron-right']"></i>
-              <span>Cambiar Contraseña</span>
+              <span>Contraseña temporal</span>
             </div>
-            
             <div v-show="showPasswordSection" class="section-content">
               <div class="form-group">
-                <label class="form-label">Nueva Contraseña</label>
+                <label class="form-label">Contraseña temporal</label>
                 <div class="input-with-icon">
                   <i class="pi pi-lock input-icon"></i>
                   <input 
@@ -136,27 +135,7 @@
                     <i :class="['pi', showPassword ? 'pi-eye-slash' : 'pi-eye']"></i>
                   </button>
                 </div>
-                <small class="form-hint">Deja en blanco si no deseas cambiar la contraseña</small>
-              </div>
-
-              <div class="form-group" v-if="passwordData.newPassword">
-                <label class="form-label">Confirmar Nueva Contraseña</label>
-                <div class="input-with-icon">
-                  <i class="pi pi-lock input-icon"></i>
-                  <input 
-                    v-model="passwordData.confirmPassword"
-                    :type="showConfirmPassword ? 'text' : 'password'" 
-                    class="form-input with-icon with-toggle"
-                    placeholder="Confirma la contraseña"
-                  />
-                  <button 
-                    type="button" 
-                    class="toggle-password"
-                    @click="showConfirmPassword = !showConfirmPassword"
-                  >
-                    <i :class="['pi', showConfirmPassword ? 'pi-eye-slash' : 'pi-eye']"></i>
-                  </button>
-                </div>
+                <small class="form-hint">Deja en blanco si no deseas cambiar la contraseña. Esta contraseña será temporal y el usuario deberá cambiarla al ingresar.</small>
               </div>
             </div>
           </div>
@@ -196,7 +175,6 @@ const userId = route.params.id
 const loading = ref(true)
 const submitting = ref(false)
 const showPassword = ref(false)
-const showConfirmPassword = ref(false)
 const showPasswordSection = ref(false)
 const areas = ref([])
 const roles = ref([])
@@ -249,10 +227,6 @@ const actualizarUsuario = async () => {
         alert('La contraseña debe tener al menos 8 caracteres')
         return
       }
-      if (passwordData.value.newPassword !== passwordData.value.confirmPassword) {
-        alert('Las contraseñas no coinciden')
-        return
-      }
     }
 
     // Preparar datos para enviar
@@ -261,12 +235,14 @@ const actualizarUsuario = async () => {
       username: formData.value.username,
       idRol: parseInt(formData.value.idRol),
       idAreaAsignada: parseInt(formData.value.idAreaAsignada),
-      activo: formData.value.activo
+      activo: formData.value.activo,
+      debeCambiarPassword: formData.value.debeCambiarPassword || false
     }
 
-    // Si hay nueva contraseña, agregarla
+    // Si hay nueva contraseña, agregarla y el flag cambiarSoloPassword (como en PanelAdmin.vue)
     if (passwordData.value.newPassword) {
-      userData.newPassword = passwordData.value.newPassword
+      userData.newPassword = passwordData.value.newPassword;
+      userData.debeCambiarPassword = true;
     }
 
     // Enviar a la API

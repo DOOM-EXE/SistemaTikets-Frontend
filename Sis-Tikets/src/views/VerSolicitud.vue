@@ -347,12 +347,15 @@
               <i class="pi pi-info-circle"></i>
               Debes tomar la solicitud antes de cambiar el estado
             </p>
-            <div v-if="parseInt(nuevoEstado) === 5" class="cancelacion-group">
-              <label class="action-label required">Razón de Rechazo</label>
+                <div
+                  v-if="nuevoEstado && parseInt(nuevoEstado) !== parseInt(ticket.idEstado)"
+                  class="cancelacion-group"
+                >
+              <label class="action-label required">Razón de cambio del estado </label>
               <textarea
                 v-model="razonCancelacion"
                 class="action-textarea"
-                placeholder="Explica por qué se rechaza esta solicitud..."
+                placeholder="Explica el motivo del cambio de estado..."
                 rows="3"
                 :disabled="cambiandoEstado"
               ></textarea>
@@ -360,7 +363,7 @@
             <button 
               class="btn-action-secondary"
               @click="cambiarEstado"
-              :disabled="!nuevoEstado || cambiandoEstado || parseInt(nuevoEstado) === parseInt(ticket.idEstado) || (!ticket.gestor && !isAdmin) || (parseInt(nuevoEstado) === 5 && !razonCancelacion.trim()) || noPuedeCambiarEstado"
+              :disabled="!nuevoEstado || cambiandoEstado || parseInt(nuevoEstado) === parseInt(ticket.idEstado) || (!ticket.gestor && !isAdmin) || !razonCancelacion.trim() || noPuedeCambiarEstado"
             >
               <i :class="cambiandoEstado ? 'pi pi-spin pi-spinner' : 'pi pi-refresh'"></i>
               {{ cambiandoEstado ? 'Cambiando...' : 'Aplicar Cambio' }}
@@ -804,8 +807,8 @@ const cambiarEstado = async () => {
   if (!nuevoEstado.value) return
   
   // Validar razón de rechazo si el estado es Rechazada (5)
-  if (parseInt(nuevoEstado.value) === 5 && !razonCancelacion.value.trim()) {
-    alert('Debes proporcionar una razón para rechazar la solicitud')
+  if (!razonCancelacion.value.trim()) {
+    alert('Debes proporcionar un comentario para cambiar el estado')
     return
   }
   
@@ -815,7 +818,7 @@ const cambiarEstado = async () => {
     cambiandoEstado.value = true
     
     // Usar la razón de rechazo como comentario si es estado Rechazada
-    const comentario = parseInt(nuevoEstado.value) === 5 ? razonCancelacion.value : ''
+    const comentario = razonCancelacion.value
     
     await ticketService.cambiarEstadoSolicitud(
       ticket.value.id, 
@@ -886,15 +889,7 @@ const asignarGestorATicket = async () => {
   }
 }
 
-const loadTrazabilidad = async (idSolicitud) => {
-  try {
-    const data = await ticketService.getTrazabilidad(idSolicitud)
-    trazabilidad.value = data || []
-  } catch (error) {
-    console.error('Error cargando trazabilidad:', error)
-    trazabilidad.value = []
-  }
-}
+
 
 const loadGestoresDisponibles = async (idArea) => {
   try {
@@ -1108,14 +1103,6 @@ const mapRolToTipo = (rol) => {
   return 'user'
 }
 
-const mapTipoComentario = (rol) => {
-  const tipoMap = {
-    'Admin': 'admin',
-    'Gestor': 'gestor',
-    'Solicitante': 'user'
-  }
-  return tipoMap[rol] || 'user'
-}
 
 const formatFecha = (fecha) => {
   return new Date(fecha).toLocaleString('es-MX', {
@@ -1127,17 +1114,6 @@ const formatFecha = (fecha) => {
   })
 }
 
-const getFileUrl = (archivoUrl) => {
-  if (!archivoUrl) return ''
-  // Si ya es una URL completa, devolverla tal cual
-  if (archivoUrl.startsWith('http')) return archivoUrl
-  
-  // Extraer el nombre del archivo de la ruta
-  const fileName = archivoUrl.split('/').pop()
-  
-  // Construir URL usando el endpoint de descarga
-  return `${apiService.baseURL}/Archivos/download/${fileName}`
-}
 
 // Funciones para manejar archivos adjuntos
 const getFileExtension = (url) => {
@@ -2115,10 +2091,11 @@ const getFileTypeLabel = (url) => {
   flex-direction: column;
   gap: 8px;
   padding: 12px;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  background: #eff6ff;          /* Azul muy suave */
+  border: 1px solid #bfdbfe;    /* Azul claro */
   border-radius: 6px;
 }
+
 
 .action-warning {
   display: flex;

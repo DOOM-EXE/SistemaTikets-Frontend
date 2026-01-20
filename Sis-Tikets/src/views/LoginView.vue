@@ -56,6 +56,29 @@
         Necesita Ayuda? <a href="#" class="help-link">Contacta soporte</a>
       </p>
     </div>
+    <!-- Modal de cambio de contraseña -->
+    <div v-if="showChangePasswordModal" class="modal-overlay">
+      <div class="modal-content">
+        <h2>Cambiar contraseña</h2>
+        <p>Por seguridad, debe cambiar su contraseña antes de continuar.</p>
+        <div class="form-group">
+          <label>Nueva contraseña</label>
+          <input type="password" v-model="newPassword" class="form-input" :disabled="changePasswordLoading" />
+        </div>
+        <div class="form-group">
+          <label>Repetir nueva contraseña</label>
+          <input type="password" v-model="confirmPassword" class="form-input" :disabled="changePasswordLoading" />
+        </div>
+        <div v-if="changePasswordError" class="error-message">
+          <i class="pi pi-exclamation-circle"></i>
+          {{ changePasswordError }}
+        </div>
+        <button class="login-button" @click="handleChangePassword" :disabled="changePasswordLoading">
+          <span v-if="!changePasswordLoading">Cambiar contraseña</span>
+          <span v-else><i class="pi pi-spinner pi-spin"></i> Cambiando...</span>
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -63,6 +86,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { authService } from '@/services'
+import { usuarioService } from '@/services'
 
 const router = useRouter()
 const username = ref('')
@@ -70,35 +94,68 @@ const password = ref('')
 const loading = ref(false)
 const error = ref('')
 
-const handleLogin = async () => {
-  // Limpiar error previo
-  error.value = ''
+// Cambio de password forzado
+const showChangePasswordModal = ref(false)
+const newPassword = ref('')
+const confirmPassword = ref('')
+const changePasswordError = ref('')
+const changePasswordLoading = ref(false)
+const userId = ref(null)
+const userPanel = ref('')
 
-  // Validación
+const handleLogin = async () => {
+  error.value = ''
   if (!username.value || !password.value) {
     error.value = 'Por favor ingrese usuario y contraseña'
     return
   }
-
   loading.value = true
-
   try {
     const user = await authService.login(username.value, password.value)
-    
-    // Redirigir según el rol del usuario
-    if (user && user.rol === 'Admin') {
-      await router.push('/panel-admin')
-    } else if (user && user.rol === 'Gestor') {
-      await router.push('/panel-gestor')
-    } else {
-      await router.push('/panel-solicitante')
+    userId.value = user.idUsuario
+    userPanel.value = user.rol === 'Admin' ? '/panel-admin' : user.rol === 'Gestor' ? '/panel-gestor' : '/panel-solicitante'
+    await router.push(userPanel.value)
+    if (user.debeCambiarPassword) {
+      showChangePasswordModal.value = true
     }
+    // Si no debe cambiar password, acceso normal
   } catch (err) {
-    // Mostrar mensaje de error
     error.value = err.message || 'Credenciales inválidas. Por favor intente de nuevo.'
     console.error('Error en login:', err)
   } finally {
     loading.value = false
+  }
+}
+
+const handleChangePassword = async () => {
+  changePasswordError.value = ''
+  if (!newPassword.value || !confirmPassword.value) {
+    changePasswordError.value = 'Debe ingresar y confirmar la nueva contraseña.'
+    return
+  }
+  if (newPassword.value !== confirmPassword.value) {
+    changePasswordError.value = 'Las contraseñas no coinciden.'
+    return
+  }
+  if (newPassword.value.length < 6) {
+    changePasswordError.value = 'La contraseña debe tener al menos 6 caracteres.'
+    return
+  }
+  changePasswordLoading.value = true
+  try {
+    await usuarioService.cambiarPassword(userId.value, {
+      NewPassword: newPassword.value,
+      CambiarSoloPassword: true
+    })
+    showChangePasswordModal.value = false
+    newPassword.value = ''
+    confirmPassword.value = ''
+    // Opcional: mostrar mensaje de éxito
+  } catch (err) {
+    changePasswordError.value = err.message || 'Error al cambiar la contraseña.'
+    console.error('Error cambiando contraseña:', err)
+  } finally {
+    changePasswordLoading.value = false
   }
 }
 </script>
@@ -273,5 +330,29 @@ const handleLogin = async () => {
 .help-link:hover {
   color: #3d2bc4;
   text-decoration: underline;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  padding: 32px 28px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  min-width: 320px;
+  max-width: 95vw;
+  width: 100%;
+  text-align: center;
 }
 </style>

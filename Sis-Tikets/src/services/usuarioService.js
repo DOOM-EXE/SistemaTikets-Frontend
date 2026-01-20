@@ -6,6 +6,31 @@ import { apiService } from './apiService'
  */
 class UsuarioService {
   /**
+   * Cambia la contraseña de un usuario
+   * @param {number} idUsuario - ID del usuario
+   * @param {Object} data - { newPassword }
+   * @returns {Promise<Object>}
+   */
+  async cambiarPassword(idUsuario, data) {
+    try {
+      // Obtener datos actuales del usuario objetivo
+      const usuarioActual = await apiService.get(`/Usuarios/${idUsuario}`)
+      const payload = {
+        nombreCompleto: usuarioActual.nombreCompleto || usuarioActual.nombre || '',
+        username: usuarioActual.username,
+        idRol: usuarioActual.idRol,
+        idAreaAsignada: usuarioActual.idAreaAsignada || usuarioActual.idArea || 1,
+        activo: usuarioActual.activo !== undefined ? usuarioActual.activo : true,
+        NewPassword: data.NewPassword,
+        CambiarSoloPassword: true
+      }
+      return await apiService.put(`/Usuarios/${idUsuario}`, payload)
+    } catch (error) {
+      console.error('Error cambiando contraseña del usuario:', error)
+      throw error
+    }
+  }
+  /**
    * Obtiene todos los gestores
    * @returns {Promise<Array>}
    */

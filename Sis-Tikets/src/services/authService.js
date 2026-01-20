@@ -30,13 +30,13 @@ class AuthService {
         id: response.idUsuario,
         username: response.username,
         nombre: response.nombreCompleto,
-        apellido: '',
-        email: '',
-        rol: response.rol, // Mantener el rol tal cual viene del API
+        rol: response.rol,
         area: response.idAreaAsignada,
         nombreArea: response.nombreArea || 'Sin área',
         esEncargado: response.esEncargado || false,
-        encargadosDeAreas: response.encargadosDeAreas || []
+        encargadosDeAreas: response.encargadosDeAreas || [],
+        debeCambiarPassword: response.debeCambiarPassword || false,
+        idUsuario: response.idUsuario, 
       }
 
       this.currentUser = Usuario.fromJSON(userData)

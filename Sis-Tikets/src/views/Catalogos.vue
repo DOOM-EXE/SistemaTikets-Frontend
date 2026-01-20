@@ -371,10 +371,7 @@ const goBack = () => {
   router.push('/panel-admin')
 }
 
-const handleLogout = () => {
-  authService.logout()
-  router.push('/login')
-}
+
 
 const loadData = async () => {
   try {

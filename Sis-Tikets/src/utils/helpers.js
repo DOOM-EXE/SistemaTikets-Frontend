@@ -49,6 +49,41 @@ export const isValidEmail = (email) => {
 }
 
 /**
+ * Descarga un archivo del servidor
+ * @param {string} fileName - Nombre del archivo a descargar
+ * @param {string} baseURL - URL base de la API
+ */
+export const DescargarArchivo = async (fileName, baseURL) => {
+  try {
+    const token = localStorage.getItem('token')
+    
+    const response = await fetch(`${baseURL}/Archivos/download/${fileName}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    
+    if (!response.ok) {
+      throw new Error('Error descargando archivo')
+    }
+    
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = fileName
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  } catch (error) {
+    console.error('Error descargando archivo:', error)
+    throw error
+  }
+}
+
+/**
  * Obtiene la clase CSS según el estado
  */
 export const getEstadoClass = (estado) => {

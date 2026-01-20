@@ -161,13 +161,79 @@
         </template>
       </div>
     </div>
+
+      <!-- Change Password Modal -->
+    <div v-if="showChangePasswordModal" class="modal-overlay">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div class="modal-icon">
+            <i class="pi pi-lock"></i>
+          </div>
+          <h2 class="modal-title">Cambiar contraseña</h2>
+          <p class="modal-subtitle">Por seguridad, debe cambiar su contraseña antes de continuar.</p>
+        </div>
+
+        <form @submit.prevent="handleChangePassword" class="modal-form">
+          <div class="form-group">
+            <label class="form-label">
+              Nueva contraseña
+              <span class="required">*</span>
+            </label>
+            <div class="input-with-icon">
+              <i class="pi pi-lock input-icon"></i>
+              <input 
+                type="password" 
+                v-model="newPassword" 
+                class="form-input with-icon"
+                placeholder="Mínimo 8 caracteres"
+                :disabled="changePasswordLoading"
+                required
+                minlength="8"
+              />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">
+              Repetir nueva contraseña
+              <span class="required">*</span>
+            </label>
+            <div class="input-with-icon">
+              <i class="pi pi-lock input-icon"></i>
+              <input 
+                type="password" 
+                v-model="confirmPassword" 
+                class="form-input with-icon"
+                placeholder="Confirma la contraseña"
+                :disabled="changePasswordLoading"
+                required
+              />
+            </div>
+          </div>
+
+          <div v-if="changePasswordError" class="error-message">
+            <i class="pi pi-exclamation-circle"></i>
+            <span>{{ changePasswordError }}</span>
+          </div>
+
+          <button 
+            type="submit" 
+            class="btn-submit" 
+            :disabled="changePasswordLoading"
+          >
+            <i v-if="changePasswordLoading" class="pi pi-spin pi-spinner"></i>
+            <span v-else>Cambiar contraseña</span>
+          </button>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ticketService, authService } from '@/services'
+import { ticketService, authService, usuarioService } from '@/services'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import EstadoBadge from '@/components/ticket/EstadoBadge.vue'
 import PrioridadBadge from '@/components/ticket/PrioridadBadge.vue'
@@ -283,6 +349,55 @@ const goToLastPage = () => {
 
 const verSolicitud = (id) => {
   router.push(`/solicitud/${id}`)
+}
+
+const showChangePasswordModal = ref(false)
+const newPassword = ref('')
+const confirmPassword = ref('')
+const changePasswordError = ref('')
+const changePasswordLoading = ref(false)
+const userId = ref(null)
+
+onMounted(() => {
+  const user = JSON.parse(localStorage.getItem('user'))
+  if (user && user.debeCambiarPassword) {
+    userId.value = user.idUsuario
+    showChangePasswordModal.value = true
+  }
+})
+
+const handleChangePassword = async () => {
+  changePasswordError.value = ''
+  if (!newPassword.value || !confirmPassword.value) {
+    changePasswordError.value = 'Debe ingresar y confirmar la nueva contraseña.'
+    return
+  }
+  if (newPassword.value !== confirmPassword.value) {
+    changePasswordError.value = 'Las contraseñas no coinciden.'
+    return
+  }
+  if (newPassword.value.length < 6) {
+    changePasswordError.value = 'La contraseña debe tener al menos 6 caracteres.'
+    return
+  }
+  changePasswordLoading.value = true
+  try {
+    await usuarioService.cambiarPassword(userId.value, {
+      NewPassword: newPassword.value,
+      debeCambiarPassword: true
+    })
+    showChangePasswordModal.value = false
+    newPassword.value = ''
+    confirmPassword.value = ''
+    const user = JSON.parse(localStorage.getItem('user'))
+    user.debeCambiarPassword = false
+    localStorage.setItem('user', JSON.stringify(user))
+  } catch (err) {
+    changePasswordError.value = err.message || 'Error al cambiar la contraseña.'
+    console.error('Error cambiando contraseña:', err)
+  } finally {
+    changePasswordLoading.value = false
+  }
 }
 </script>
 
@@ -563,20 +678,215 @@ const verSolicitud = (id) => {
   color: #9ca3af;
   margin: 0;
 }
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  backdrop-filter: blur(2px);
+}
 
-@media (max-width: 1024px) {
-  .filters-row {
-    grid-template-columns: repeat(2, 1fr);
+/* Modal Content */
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  padding: 40px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  min-width: 420px;
+  max-width: 95vw;
+  width: 100%;
+  animation: modalFadeIn 0.3s ease;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
+/* Modal Header */
+.modal-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.modal-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 28px;
+  margin: 0 auto 16px;
+}
+
+.modal-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 8px 0;
+}
+
+.modal-subtitle {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Modal Form */
+.modal-form {
+  text-align: left;
+}
+
+.form-group {
+  margin-bottom: 24px;
+}
+
+.form-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 8px;
+}
+
+.required {
+  color: #ef4444;
+}
+
+/* Input Styles */
+.input-with-icon {
+  position: relative;
+}
+
+.input-icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  font-size: 16px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #374151;
+  outline: none;
+  transition: all 0.3s ease;
+  background: white;
+}
+
+.form-input.with-icon {
+  padding-left: 46px;
+}
+
+.form-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-input:disabled {
+  background: #f9fafb;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.form-input::placeholder {
+  color: #9ca3af;
+}
+
+/* Error Message */
+.error-message {
+  background: #fee2e2;
+  color: #dc2626;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #fecaca;
+}
+
+.error-message i {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.error-message span {
+  line-height: 1.4;
+}
+
+/* Submit Button */
+.btn-submit {
+  width: 100%;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+  background: #3b82f6;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-submit:hover:not(:disabled) {
+  background: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.btn-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-submit i {
+  font-size: 16px;
+}
+
+/* Responsive */
 @media (max-width: 768px) {
-  .filters-row {
-    grid-template-columns: 1fr;
+  .modal-content {
+    min-width: 90vw;
+    padding: 32px 24px;
   }
-  
-  .table-wrapper {
-    overflow-x: scroll;
+
+  .modal-icon {
+    width: 50px;
+    height: 50px;
+    font-size: 24px;
+  }
+
+  .modal-title {
+    font-size: 20px;
   }
 }
 </style>

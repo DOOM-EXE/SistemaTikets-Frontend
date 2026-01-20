@@ -14,6 +14,7 @@ import Catalogos from '@/views/Catalogos.vue'
 import CrearUsuario from '@/views/CrearUsuario.vue'
 import EditarUsuario from '@/views/EditarUsuario.vue'
 import Reportes from '@/views/Reportes.vue'
+import Auditoria from '@/views/Auditoria.vue'
 
 /**
  * Configuración de rutas del sistema de tickets
@@ -110,6 +111,17 @@ const routes = [
       requiresAuth: true,
       role: 'Admin',
       title: 'Reportes y Estadísticas'
+    }
+  },
+  {
+    path: '/auditoria',
+    name: 'Auditoria',
+    component: Auditoria,
+    meta: {
+      requiresAuth: true,
+      role: 'Admin',
+      requiresSuperAdmin: true,
+      title: 'Auditoria del Sistema'
     }
   },
   {
